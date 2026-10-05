@@ -34,8 +34,8 @@ $config['refresh_token_expiration'] = 604800;
 |--------------------------------------------------------------------------
 */
 
-$config['jwt_secret'] =
-    'labact6_jwt_secret_2026_secure_key_123456789';
+$config['jwt_secret'] = getenv('JWT_SECRET' ?: '');
+    '';
 
 
 /*
@@ -44,8 +44,8 @@ $config['jwt_secret'] =
 |--------------------------------------------------------------------------
 */
 
-$config['refresh_token_key'] =
-    'labact6_refresh_token_2026_secure_key_987654321';
+$config['refresh_token_key'] = getenv('REFRESH_TOKEN_KEY' ?: '');
+    '';
 
 
 /*
@@ -73,15 +73,13 @@ $config['users_table'] = 'users';
 */
 
 $config['allow_origin'] = [
+    'http://localhost:3000',
     'http://localhost:5182',
-    'http://localhost:5173',
     'http://localhost:5174',
     'http://localhost:5175',
-    'http://127.0.0.1:3000',
-    'http://127.0.0.1:5173',
+    'http://127.0.0.1:5182',
     'http://127.0.0.1:5174',
     'http://127.0.0.1:5175',
-
     'https://pomeda-gretchen123-lavaapi.vercel.app'
 ];
 
@@ -103,7 +101,7 @@ $config['refresh_token_table'] =
 */
 
 $config['jwt_issuer'] =
-    'http://127.0.0.1:3000';
+    'your-app';
 
 
 /*
@@ -113,7 +111,7 @@ $config['jwt_issuer'] =
 */
 
 $config['jwt_audience'] =
-    'http://127.0.0.1:3000';
+    'your-app-clients';
 
 
 /*
