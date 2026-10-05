@@ -1,73 +1,99 @@
-const API_URL = "https://pomeda-gretchen123-lavaapi.vercel.app";
+import axios from "axios";
 
-export async function apiRequest(
-    endpoint,
-    options = {}
-) {
-    const token =
-        localStorage.getItem("access_token");
 
-    const headers = {
+// ========================================
+// LAVALUST API URL
+// ========================================
+
+// PALITAN ITO NG ACTUAL RENDER BACKEND URL
+const API_URL = "https://pomeda-gretchen123-lavaapi.onrender.com";
+
+
+// ========================================
+// AXIOS INSTANCE
+// ========================================
+
+const api = axios.create({
+    baseURL: API_URL,
+    headers: {
         "Content-Type": "application/json",
-        ...options.headers,
-    };
-
-    if (token) {
-        headers.Authorization =
-            `Bearer ${token}`;
+        "Accept": "application/json"
     }
+});
 
-    try {
-        const response = await fetch(
-            `${API_URL}/${endpoint}`,
-            {
-                ...options,
-                headers,
-            }
-        );
 
-        const text =
-            await response.text();
+// ========================================
+// ADD TOKEN AUTOMATICALLY
+// ========================================
 
-        let data;
+api.interceptors.request.use(
+    (config) => {
 
-        try {
-            data = JSON.parse(text);
-        } catch {
-            data = {
-                message:
-                    text ||
-                    "Server returned an invalid response."
-            };
+        const token =
+            localStorage.getItem("access_token");
+
+        if (token) {
+            config.headers.Authorization =
+                `Bearer ${token}`;
         }
 
-        if (!response.ok) {
-            throw new Error(
-                data.message ||
-                data.error ||
-                `HTTP Error ${response.status}`
-            );
-        }
+        return config;
+    },
 
-        return data;
+    (error) => {
+        return Promise.reject(error);
+    }
+);
 
-    } catch (error) {
+
+// ========================================
+// ERROR HANDLER
+// ========================================
+
+function handleError(error) {
+
+    console.error("API ERROR:", error);
+
+    if (error.response) {
+
         console.error(
-            "API ERROR:",
-            error
+            "STATUS:",
+            error.response.status
         );
+
+        console.error(
+            "DATA:",
+            error.response.data
+        );
+
+        const data =
+            error.response.data;
 
         throw new Error(
-            error.message ||
-            "Unable to connect to server."
+            data?.message ||
+            data?.error ||
+            `HTTP Error ${error.response.status}`
         );
     }
+
+    if (error.request) {
+
+        throw new Error(
+            "Unable to connect to the API server."
+        );
+    }
+
+    throw new Error(
+        error.message ||
+        "Something went wrong."
+    );
 }
 
 
-/* =========================
-   AUTH
-========================= */
+// ========================================
+// REGISTER
+// POST /register
+// ========================================
 
 export async function register(
     username,
@@ -75,208 +101,340 @@ export async function register(
     password,
     role
 ) {
-    return await apiRequest(
-        "register",
-        {
-            method: "POST",
 
-            body: JSON.stringify({
-                username,
-                email,
-                password,
-                role
-            })
-        }
-    );
+    try {
+
+        const response =
+            await api.post(
+                "/register",
+                {
+                    username,
+                    email,
+                    password,
+                    role
+                }
+            );
+
+        return response.data;
+
+    } catch (error) {
+
+        handleError(error);
+    }
 }
 
+
+// ========================================
+// LOGIN
+// POST /login
+// ========================================
 
 export async function login(
     username,
     password
 ) {
-    const data =
-        await apiRequest(
-            "login",
-            {
-                method: "POST",
 
-                body: JSON.stringify({
+    try {
+
+        const response =
+            await api.post(
+                "/login",
+                {
                     username,
                     password
-                })
-            }
-        );
+                }
+            );
 
-    if (data.tokens) {
+        const data =
+            response.data;
 
+
+        // ACCESS TOKEN
         if (
-            data.tokens.access_token
+            data?.tokens?.access_token
         ) {
+
             localStorage.setItem(
                 "access_token",
                 data.tokens.access_token
             );
         }
 
+
+        // REFRESH TOKEN
         if (
-            data.tokens.refresh_token
+            data?.tokens?.refresh_token
         ) {
+
             localStorage.setItem(
                 "refresh_token",
                 data.tokens.refresh_token
             );
         }
-    }
 
-    if (data.user) {
-        localStorage.setItem(
-            "user",
-            JSON.stringify(
-                data.user
-            )
-        );
-    }
 
-    return data;
+        // USER
+        if (data?.user) {
+
+            localStorage.setItem(
+                "user",
+                JSON.stringify(data.user)
+            );
+        }
+
+
+        return data;
+
+    } catch (error) {
+
+        handleError(error);
+    }
 }
 
 
+// ========================================
+// LOGOUT
+// POST /logout
+// ========================================
+
 export async function logout() {
+
     const refreshToken =
         localStorage.getItem(
             "refresh_token"
         );
 
     try {
-        await apiRequest(
-            "logout",
-            {
-                method: "POST",
 
-                body: JSON.stringify({
-                    refresh_token:
-                        refreshToken
-                })
+        await api.post(
+            "/logout",
+            {
+                refresh_token:
+                    refreshToken
             }
         );
 
     } catch (error) {
+
         console.error(
             "Logout error:",
             error
         );
+
+    } finally {
+
+        localStorage.removeItem(
+            "access_token"
+        );
+
+        localStorage.removeItem(
+            "refresh_token"
+        );
+
+        localStorage.removeItem(
+            "user"
+        );
     }
-
-    localStorage.removeItem(
-        "access_token"
-    );
-
-    localStorage.removeItem(
-        "refresh_token"
-    );
-
-    localStorage.removeItem(
-        "user"
-    );
 }
 
 
+// ========================================
+// REFRESH TOKEN
+// POST /refresh-token
+// ========================================
+
 export async function refreshToken() {
+
     const refresh_token =
         localStorage.getItem(
             "refresh_token"
         );
 
-    return await apiRequest(
-        "refresh-token",
-        {
-            method: "POST",
+    try {
 
-            body: JSON.stringify({
-                refresh_token
-            })
+        const response =
+            await api.post(
+                "/refresh-token",
+                {
+                    refresh_token
+                }
+            );
+
+        const data =
+            response.data;
+
+
+        if (
+            data?.tokens?.access_token
+        ) {
+
+            localStorage.setItem(
+                "access_token",
+                data.tokens.access_token
+            );
         }
-    );
+
+
+        if (
+            data?.tokens?.refresh_token
+        ) {
+
+            localStorage.setItem(
+                "refresh_token",
+                data.tokens.refresh_token
+            );
+        }
+
+
+        return data;
+
+    } catch (error) {
+
+        handleError(error);
+    }
 }
 
+
+// ========================================
+// PROFILE
+// GET /profile
+// ========================================
 
 export async function getProfile() {
-    return await apiRequest(
-        "profile",
-        {
-            method: "GET"
-        }
-    );
+
+    try {
+
+        const response =
+            await api.get(
+                "/profile"
+            );
+
+        return response.data;
+
+    } catch (error) {
+
+        handleError(error);
+    }
 }
 
 
-/* =========================
-   PRODUCTS
-========================= */
+// ========================================
+// PRODUCTS
+// ========================================
+
+
+// GET ALL
+// GET /products
 
 export async function getProducts() {
-    return await apiRequest(
-        "products",
-        {
-            method: "GET"
-        }
-    );
+
+    try {
+
+        const response =
+            await api.get(
+                "/products"
+            );
+
+        return response.data;
+
+    } catch (error) {
+
+        handleError(error);
+    }
 }
 
 
-export async function getProduct(
-    id
-) {
-    return await apiRequest(
-        `products/${id}`,
-        {
-            method: "GET"
-        }
-    );
+// GET ONE
+// GET /products/:id
+
+export async function getProduct(id) {
+
+    try {
+
+        const response =
+            await api.get(
+                `/products/${id}`
+            );
+
+        return response.data;
+
+    } catch (error) {
+
+        handleError(error);
+    }
 }
 
+
+// CREATE
+// POST /products
 
 export async function createProduct(
     product
 ) {
-    return await apiRequest(
-        "products",
-        {
-            method: "POST",
 
-            body: JSON.stringify(
+    try {
+
+        const response =
+            await api.post(
+                "/products",
                 product
-            )
-        }
-    );
+            );
+
+        return response.data;
+
+    } catch (error) {
+
+        handleError(error);
+    }
 }
 
+
+// UPDATE
+// PUT /products/:id
 
 export async function updateProduct(
     id,
     product
 ) {
-    return await apiRequest(
-        `products/${id}`,
-        {
-            method: "PUT",
 
-            body: JSON.stringify(
+    try {
+
+        const response =
+            await api.put(
+                `/products/${id}`,
                 product
-            )
-        }
-    );
+            );
+
+        return response.data;
+
+    } catch (error) {
+
+        handleError(error);
+    }
 }
 
+
+// DELETE
+// DELETE /products/:id
 
 export async function deleteProduct(
     id
 ) {
-    return await apiRequest(
-        `products/${id}`,
-        {
-            method: "DELETE"
-        }
-    );
+
+    try {
+
+        const response =
+            await api.delete(
+                `/products/${id}`
+            );
+
+        return response.data;
+
+    } catch (error) {
+
+        handleError(error);
+    }
 }
+
+
+export default api;
