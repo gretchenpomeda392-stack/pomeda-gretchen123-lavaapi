@@ -1,4 +1,4 @@
-const API_URL = "/api";
+const API_URL = "https://pomeda-gretchen123-lavaapi.vercel.app";
 
 export async function apiRequest(
     endpoint,
