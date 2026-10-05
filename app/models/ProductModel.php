@@ -31,12 +31,13 @@ class ProductModel extends Model
     public function getAll()
     {
         $stmt = $this->db->raw(
-            "SELECT id,
-                    product_name,
-                    description,
-                    price,
-                    quantity,
-                    created_at
+            "SELECT
+                id,
+                product_name,
+                description,
+                price,
+                quantity,
+                created_at
              FROM products
              ORDER BY id DESC"
         );
@@ -53,12 +54,13 @@ class ProductModel extends Model
     public function getById($id)
     {
         $stmt = $this->db->raw(
-            "SELECT id,
-                    product_name,
-                    description,
-                    price,
-                    quantity,
-                    created_at
+            "SELECT
+                id,
+                product_name,
+                description,
+                price,
+                quantity,
+                created_at
              FROM products
              WHERE id = ?
              LIMIT 1",
@@ -76,7 +78,31 @@ class ProductModel extends Model
 
     public function create($data)
     {
-        return $this->insert($data);
+        $stmt = $this->db->raw(
+            "INSERT INTO products
+                (
+                    product_name,
+                    description,
+                    price,
+                    quantity,
+                    created_at
+                )
+             VALUES
+                (?, ?, ?, ?, ?)",
+            [
+                $data['product_name'],
+                $data['description'],
+                $data['price'],
+                $data['quantity'],
+                $data['created_at']
+            ]
+        );
+
+        if (!$stmt) {
+            return false;
+        }
+
+        return $this->db->last_id();
     }
 
     /*
@@ -89,10 +115,11 @@ class ProductModel extends Model
     {
         $stmt = $this->db->raw(
             "UPDATE products
-             SET product_name = ?,
-                 description = ?,
-                 price = ?,
-                 quantity = ?
+             SET
+                product_name = ?,
+                description = ?,
+                price = ?,
+                quantity = ?
              WHERE id = ?",
             [
                 $data['product_name'],

@@ -1,747 +1,1481 @@
 <?php
+
 defined('PREVENT_DIRECT_ACCESS') OR exit('No direct script access allowed');
+
 /**
  * ------------------------------------------------------------------
  * LavaLust - an opensource lightweight PHP MVC Framework
  * ------------------------------------------------------------------
- *
- * MIT License
- * 
- * Copyright (c) 2020 Ronald M. Marasigan
- * 
- * Permission is hereby granted, free of charge, to any person obtaining a copy
- * of this software and associated documentation files (the "Software"), to deal
- * in the Software without restriction, including without limitation the rights
- * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
- * copies of the Software, and to permit persons to whom the Software is
- * furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in
- * all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
- * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
- * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
- * THE SOFTWARE.
- *
- * @package LavaLust
- * @author Ronald M. Marasigan <ronald.marasigan@yahoo.com>
- * @since Version 4
- * @link https://github.com/ronmarasigan/LavaLust
- * @license https://opensource.org/licenses/MIT MIT License
  */
 
-/**
-* ------------------------------------------------------
-*  Class API
-* ------------------------------------------------------
- */
 class Api
 {
     /**
-     * Known Insecure Secrets
-     *
-     * Values that were published in earlier releases or example
-     * configurations. They are rejected regardless of their length,
-     * because anyone can read them from the public repository.
-     *
-     * @var array
-     */
-    /**
-     * Minimum Secret Length
-     *
-     * @var integer
+     * Minimum JWT secret length
      */
     private const MIN_SECRET_LENGTH = 32;
 
     /**
      * LavaLust Super Object
-     *
-     * @var object
      */
     private $_lava;
 
     /**
-     * Api Refresh Token Table
-     *
-     * @var string
+     * Refresh Token Table
      */
     protected $refresh_token_table;
 
     /**
-     * Api Users Table
-     *
-     * Table used to confirm that the token subject exists and to read
-     * the user's role on the server side.
-     *
-     * @var string
+     * Users Table
      */
     protected $users_table = 'users';
 
     /**
      * Verify User On Each Request
-     *
-     * When TRUE, require_jwt() checks that the user exists and takes
-     * role and scopes from the database instead of the token claims.
-     *
-     * @var boolean
      */
     protected $verify_user = true;
 
     /**
-     * Api Payload Token Expiration
-     *
-     * This is used for Payload Token Expiration.
-     * Default is 900 seconds (15 minutes).
-     *
-     * @var integer
+     * Access Token Expiration
      */
     protected $payload_token_expiration = 900;
 
     /**
-     * Api Refresh Token Expiration
-     *
-     * This is used for Refresh Token Expiration.
-     * Default is 604800 seconds (7 days).
-     *
-     * @var integer
+     * Refresh Token Expiration
      */
     protected $refresh_token_expiration = 604800;
 
     /**
-     * Allow Origin
-     *
-     * @var string
+     * CORS
      */
     protected $allow_origin;
 
     /**
-     * Secret Code
-     *
-     * @var string
+     * JWT Secret
      */
     private $jwt_secret;
 
     /**
-     * Refresh Token
-     *
-     * @var string
+     * Refresh Token Secret
      */
     private $refresh_token_key;
 
     /**
      * JWT Issuer
-     *
-     * @var string
      */
     protected $jwt_issuer;
 
     /**
      * JWT Audience
-     *
-     * @var string
      */
     protected $jwt_audience;
 
     /**
      * Rate Limiting
-     *
-     * @var boolean
      */
     protected $rate_limit_enabled;
 
-    /**
-     * Rate Limit Requests
-     *
-     * @var integer
-     */
     protected $rate_limit_requests = 60;
 
-    /**
-     * Rate Limit Seconds
-     *
-     * @var integer
-     */
     protected $rate_limit_seconds = 60;
 
+
+    /**
+     * Constructor
+     */
     public function __construct()
     {
         $this->_lava = lava_instance();
+
         $this->_lava->call->library('cache');
+
         $this->_lava->config->load('api');
 
         if (!config_item('api_helper_enabled')) {
             show_error('Api Helper is disabled or set up incorrectly.');
         }
 
-        // Load config
-        $this->refresh_token_table      = config_item('refresh_token_table') ?? $this->refresh_token_table;
-        $this->users_table              = config_item('users_table') ?? $this->users_table;
-        $this->verify_user              = (bool) (config_item('jwt_verify_user') ?? $this->verify_user);
-        $this->payload_token_expiration = (int) (config_item('payload_token_expiration') ?? $this->payload_token_expiration);
-        $this->refresh_token_expiration = (int) (config_item('refresh_token_expiration') ?? $this->refresh_token_expiration);
-        $this->jwt_secret               = config_item('jwt_secret');
-        $this->refresh_token_key        = config_item('refresh_token_key');
-        $this->allow_origin             = config_item('allow_origin');
+        /*
+        |--------------------------------------------------------------------------
+        | Load configuration
+        |--------------------------------------------------------------------------
+        */
 
-        // JWT config
-        $this->jwt_issuer              = config_item('jwt_issuer') ?? $this->jwt_issuer;
-        $this->jwt_audience            = config_item('jwt_audience') ?? $this->jwt_audience;
+        $this->refresh_token_table =
+            config_item('refresh_token_table')
+            ?? 'refresh_tokens';
 
-        // Rate limit config
-        $this->rate_limit_enabled   = (bool) (config_item('rate_limit_enabled') ?? true);
-        $this->rate_limit_requests  = (int)  (config_item('rate_limit_requests') ?? $this->rate_limit_requests);
-        $this->rate_limit_seconds   = (int)  (config_item('rate_limit_seconds') ?? $this->rate_limit_seconds);
+        $this->users_table =
+            config_item('users_table')
+            ?? 'users';
 
-        // Fail closed: refuse to start with a missing, weak or publicly known secret.
-        $this->assert_secret_is_safe($this->jwt_secret, 'jwt_secret');
-        $this->assert_secret_is_safe($this->refresh_token_key, 'refresh_token_key');
+        $this->verify_user =
+            (bool) (
+                config_item('jwt_verify_user')
+                ?? true
+            );
 
-        if (hash_equals((string) $this->jwt_secret, (string) $this->refresh_token_key)) {
-            show_error('jwt_secret and refresh_token_key must be different values.');
+        $this->payload_token_expiration =
+            (int) (
+                config_item('payload_token_expiration')
+                ?? 900
+            );
+
+        $this->refresh_token_expiration =
+            (int) (
+                config_item('refresh_token_expiration')
+                ?? 604800
+            );
+
+        $this->jwt_secret =
+            config_item('jwt_secret');
+
+        $this->refresh_token_key =
+            config_item('refresh_token_key');
+
+        $this->allow_origin =
+            config_item('allow_origin');
+
+        $this->jwt_issuer =
+            config_item('jwt_issuer')
+            ?? '';
+
+        $this->jwt_audience =
+            config_item('jwt_audience')
+            ?? '';
+
+        /*
+        |--------------------------------------------------------------------------
+        | Rate Limit
+        |--------------------------------------------------------------------------
+        */
+
+        $this->rate_limit_enabled =
+            (bool) (
+                config_item('rate_limit_enabled')
+                ?? true
+            );
+
+        $this->rate_limit_requests =
+            (int) (
+                config_item('rate_limit_requests')
+                ?? 60
+            );
+
+        $this->rate_limit_seconds =
+            (int) (
+                config_item('rate_limit_seconds')
+                ?? 60
+            );
+
+        /*
+        |--------------------------------------------------------------------------
+        | Validate secrets
+        |--------------------------------------------------------------------------
+        */
+
+        $this->assert_secret_is_safe(
+            $this->jwt_secret,
+            'jwt_secret'
+        );
+
+        $this->assert_secret_is_safe(
+            $this->refresh_token_key,
+            'refresh_token_key'
+        );
+
+        if (
+            hash_equals(
+                (string) $this->jwt_secret,
+                (string) $this->refresh_token_key
+            )
+        ) {
+            show_error(
+                'jwt_secret and refresh_token_key must be different values.'
+            );
         }
+
+        /*
+        |--------------------------------------------------------------------------
+        | CORS
+        |--------------------------------------------------------------------------
+        */
 
         handle_cors();
     }
 
+
     /**
-     * assert_secret_is_safe
-     *
-     * Stops the request when a secret is missing, too short, has too little
-     * entropy, or is one of the publicly known default values.
-     *
-     * @param mixed  $secret
-     * @param string $name   Config key name, used in the error message
-     * @return void
+     * Validate secret
      */
     private function assert_secret_is_safe($secret, $name)
     {
         $secret = (string) $secret;
 
-        if ($secret === '' || strlen($secret) < self::MIN_SECRET_LENGTH) {
-            show_error("{$name} is missing or too short. Use at least " . self::MIN_SECRET_LENGTH . " random characters.");
+        if (
+            $secret === ''
+            || strlen($secret) < self::MIN_SECRET_LENGTH
+        ) {
+            show_error(
+                "{$name} is missing or too short. " .
+                "Use at least " .
+                self::MIN_SECRET_LENGTH .
+                " random characters."
+            );
         }
 
-        // Reject trivially low-entropy values such as "aaaaaaaa..." or "1234123412...".
-        if (count(array_unique(str_split($secret))) < 10) {
-            show_error("{$name} has too little entropy. Use a random value.");
+        if (
+            count(
+                array_unique(
+                    str_split($secret)
+                )
+            ) < 10
+        ) {
+            show_error(
+                "{$name} has too little entropy. " .
+                "Use a random value."
+            );
         }
     }
 
+
     /**
-     * API body
-     *
-     * @return void
+     * Get API body
      */
     public function body()
     {
-        $contentType = $_SERVER['CONTENT_TYPE'] ?? '';
+        $contentType =
+            $_SERVER['CONTENT_TYPE']
+            ?? '';
 
-        if (stripos($contentType, 'application/json') !== false) {
-            $input = json_decode(file_get_contents('php://input'), true);
-            return is_array($input) ? $this->sanitize_input($input) : [];
+        if (
+            stripos(
+                $contentType,
+                'application/json'
+            ) !== false
+        ) {
+            $input = json_decode(
+                file_get_contents('php://input'),
+                true
+            );
+
+            return is_array($input)
+                ? $this->sanitize_input($input)
+                : [];
         }
 
-        if ($_POST) {
+        if (!empty($_POST)) {
             return $this->sanitize_input($_POST);
         }
 
-        parse_str(file_get_contents('php://input'), $formData);
-        return $this->sanitize_input($formData ?? []);
+        parse_str(
+            file_get_contents('php://input'),
+            $formData
+        );
+
+        return $this->sanitize_input(
+            $formData ?? []
+        );
     }
 
+
     /**
-     * get_query_params
-     *
-     * @return void
+     * Get query parameters
      */
     public function get_query_params()
     {
         return $this->sanitize_input($_GET);
     }
 
+
     /**
-     * sanitize_input
-     *
-     * @param array $data
-     * @return array
+     * Sanitize input
      */
     private function sanitize_input($data)
     {
-        array_walk_recursive($data, function(&$value) {
-            if (is_string($value)) {
-                $value = trim(htmlspecialchars($value, ENT_QUOTES, 'UTF-8'));
+        if (!is_array($data)) {
+            return [];
+        }
+
+        array_walk_recursive(
+            $data,
+            function (&$value) {
+
+                if (is_string($value)) {
+                    $value = trim(
+                        htmlspecialchars(
+                            $value,
+                            ENT_QUOTES,
+                            'UTF-8'
+                        )
+                    );
+                }
             }
-        });
+        );
+
         return $data;
     }
 
+
     /**
-     * require_method
-     *
-     * @param string $method
-     * @return void
+     * Require HTTP method
      */
     public function require_method(string $method)
     {
-        if ($_SERVER['REQUEST_METHOD'] !== strtoupper($method)) {
-            $this->respond_error("Method Not Allowed", 405);
+        $requestMethod =
+            $_SERVER['REQUEST_METHOD']
+            ?? '';
+
+        if (
+            strtoupper($requestMethod)
+            !== strtoupper($method)
+        ) {
+            $this->respond_error(
+                'Method Not Allowed',
+                405
+            );
         }
     }
 
+
     /**
-     * rate_limit
-     *
-     * @param string|null $key
-     * @param integer|null $requests
-     * @param integer|null $seconds
-     * @return void
+     * Rate limiting
      */
-    public function rate_limit($key = null, $requests = null, $seconds = null)
-    {
+    public function rate_limit(
+        $key = null,
+        $requests = null,
+        $seconds = null
+    ) {
         if (!$this->rate_limit_enabled) {
             return;
         }
 
-        $requests = $requests ?? $this->rate_limit_requests;
-        $seconds  = $seconds  ?? $this->rate_limit_seconds;
+        $requests =
+            $requests
+            ?? $this->rate_limit_requests;
 
-        // Generate safe cache key (Windows-friendly)
+        $seconds =
+            $seconds
+            ?? $this->rate_limit_seconds;
+
         if ($key === null) {
-            $ip = $_SERVER['REMOTE_ADDR'] ?? 'unknown';
-            $raw_key = 'rate_limit:' . $ip;
+
+            $ip =
+                $_SERVER['REMOTE_ADDR']
+                ?? 'unknown';
+
+            $raw_key =
+                'rate_limit:' . $ip;
+
         } else {
-            $raw_key = 'rate_limit:' . $key;
+
+            $raw_key =
+                'rate_limit:' . $key;
         }
 
-        // Replace unsafe characters for Windows filenames
-        $safe_key = str_replace([':', '/', '\\', '*', '?', '"', '<', '>', '|'], '_', $raw_key);
-        $safe_key = preg_replace('/[^a-zA-Z0-9_\-]/', '_', $safe_key); // extra safety
+        /*
+        |--------------------------------------------------------------------------
+        | Make cache key safe
+        |--------------------------------------------------------------------------
+        */
 
-        $cache = $this->_lava->cache;
+        $safe_key =
+            str_replace(
+                [
+                    ':',
+                    '/',
+                    '\\',
+                    '*',
+                    '?',
+                    '"',
+                    '<',
+                    '>',
+                    '|'
+                ],
+                '_',
+                $raw_key
+            );
 
-        $current      = $cache->get($safe_key);
-        $window_start = $cache->get($safe_key . '_start');   // Use underscore instead of :
+        $safe_key =
+            preg_replace(
+                '/[^a-zA-Z0-9_\-]/',
+                '_',
+                $safe_key
+            );
 
-        $current      = is_numeric($current) ? (int)$current : 0;
-        $window_start = is_numeric($window_start) ? (int)$window_start : 0;
+        $cache =
+            $this->_lava->cache;
+
+        $current =
+            $cache->get($safe_key);
+
+        $window_start =
+            $cache->get(
+                $safe_key . '_start'
+            );
+
+        $current =
+            is_numeric($current)
+            ? (int) $current
+            : 0;
+
+        $window_start =
+            is_numeric($window_start)
+            ? (int) $window_start
+            : 0;
 
         $now = time();
 
-        if ($window_start === 0 || ($now - $window_start) >= $seconds) {
-            // New window
-            $cache->write(1, $safe_key, $seconds);
-            $cache->write($now, $safe_key . '_start', $seconds);
-            $remaining = $requests - 1;
+        if (
+            $window_start === 0
+            || ($now - $window_start) >= $seconds
+        ) {
+
+            $cache->write(
+                1,
+                $safe_key,
+                $seconds
+            );
+
+            $cache->write(
+                $now,
+                $safe_key . '_start',
+                $seconds
+            );
+
+            $remaining =
+                $requests - 1;
+
+            $window_start =
+                $now;
+
         } else {
+
             if ($current >= $requests) {
-                $reset_time = $window_start + $seconds;
-                $this->respond_rate_limit_exceeded($requests, $current, $reset_time);
+
+                $reset_time =
+                    $window_start + $seconds;
+
+                $this->respond_rate_limit_exceeded(
+                    $requests,
+                    $current,
+                    $reset_time
+                );
             }
 
-            $cache->write($current + 1, $safe_key, $seconds);
-            $remaining = $requests - ($current + 1);
+            $cache->write(
+                $current + 1,
+                $safe_key,
+                $seconds
+            );
+
+            $remaining =
+                $requests - ($current + 1);
         }
 
-        // Rate limit headers
-        header("X-RateLimit-Limit: $requests");
-        header("X-RateLimit-Remaining: $remaining");
-        header("X-RateLimit-Reset: " . ($window_start + $seconds));
+        header(
+            "X-RateLimit-Limit: {$requests}"
+        );
+
+        header(
+            "X-RateLimit-Remaining: {$remaining}"
+        );
+
+        header(
+            "X-RateLimit-Reset: " .
+            ($window_start + $seconds)
+        );
     }
 
-    /**
-     * respond_rate_limit_exceeded
-     *
-     * @param integer $limit
-     * @param integer $used
-     * @param integer $reset_time
-     * @return void
-     */
-    private function respond_rate_limit_exceeded($limit, $used, $reset_time)
-    {
-        $retry_after = max(0, $reset_time - time());
-        header("Retry-After: $retry_after");
 
-        $this->respond([
-            'error'       => 'Too many requests. Please try again later.',
-            'limit'       => $limit,
-            'used'        => $used,
-            'remaining'   => 0,
-            'reset_at'    => date('c', $reset_time),
-            'retry_after' => $retry_after
-        ], 429);
+    /**
+     * Rate limit response
+     */
+    private function respond_rate_limit_exceeded(
+        $limit,
+        $used,
+        $reset_time
+    ) {
+        $retry_after =
+            max(
+                0,
+                $reset_time - time()
+            );
+
+        header(
+            "Retry-After: {$retry_after}"
+        );
+
+        $this->respond(
+            [
+                'error' =>
+                    'Too many requests. Please try again later.',
+
+                'limit' =>
+                    $limit,
+
+                'used' =>
+                    $used,
+
+                'remaining' =>
+                    0,
+
+                'reset_at' =>
+                    date(
+                        'c',
+                        $reset_time
+                    ),
+
+                'retry_after' =>
+                    $retry_after
+            ],
+            429
+        );
     }
 
+
     /**
-     * respond
-     *
-     * @param mixed $data
-     * @param integer $code
-     * @return void
+     * API response
      */
-    public function respond($data, $code = 200)
-    {
+    public function respond(
+        $data,
+        $code = 200
+    ) {
         http_response_code($code);
-        echo json_encode($data, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+
+        header(
+            'Content-Type: application/json; charset=utf-8'
+        );
+
+        echo json_encode(
+            $data,
+            JSON_UNESCAPED_SLASHES
+            | JSON_UNESCAPED_UNICODE
+        );
+
         exit;
     }
 
-    /**
-     * respond_error
-     *
-     * @param string $message
-     * @param integer $code
-     * @return void
-     */
-    public function respond_error($message, $code = 400)
-    {
-        $this->respond(['error' => $message, 'status' => $code], $code);
-    }
 
     /**
-     * base64UrlEncode
-     *
-     * @param string $data
-     * @return string
+     * API error response
+     */
+    public function respond_error(
+        $message,
+        $code = 400
+    ) {
+        $this->respond(
+            [
+                'error' => $message,
+                'status' => $code
+            ],
+            $code
+        );
+    }
+
+
+    /**
+     * Base64 URL encode
      */
     private function base64UrlEncode($data)
     {
-        return rtrim(strtr(base64_encode($data), '+/', '-_'), '=');
+        return rtrim(
+            strtr(
+                base64_encode($data),
+                '+/',
+                '-_'
+            ),
+            '='
+        );
     }
 
+
     /**
-     * base64UrlDecode
-     *
-     * @param string $data
-     * @return string
+     * Base64 URL decode
      */
     private function base64UrlDecode($data)
     {
-        $pad = strlen($data) % 4;
-        if ($pad) $data .= str_repeat('=', 4 - $pad);
-        return base64_decode(strtr($data, '-_', '+/'));
+        $pad =
+            strlen($data) % 4;
+
+        if ($pad) {
+            $data .= str_repeat(
+                '=',
+                4 - $pad
+            );
+        }
+
+        return base64_decode(
+            strtr(
+                $data,
+                '-_',
+                '+/'
+            )
+        );
     }
 
-    // --------------------------
-    // Auth: JWT
-    // --------------------------
+
+    /*
+    |--------------------------------------------------------------------------
+    | JWT
+    |--------------------------------------------------------------------------
+    */
+
+
     /**
-     * encode_jwt
-     *
-     * @param array $payload
-     * @return array<string,mixed>|null
+     * Encode JWT
      */
     public function encode_jwt($payload)
     {
-        $header = ['alg' => 'HS256', 'typ' => 'JWT'];
-        $headerEnc = $this->base64UrlEncode(json_encode($header));
+        $header = [
+            'alg' => 'HS256',
+            'typ' => 'JWT'
+        ];
+
+        $headerEnc =
+            $this->base64UrlEncode(
+                json_encode($header)
+            );
 
         $now = time();
-        $payload = array_merge([
-            'iat' => $now,
-            'exp' => $now + $this->payload_token_expiration,
-            'iss' => $this->jwt_issuer,
-            'aud' => $this->jwt_audience,
-            'jti' => bin2hex(random_bytes(16))
-        ], $payload);
 
-        $payloadEnc = $this->base64UrlEncode(json_encode($payload));
-        $signature = hash_hmac('sha256', "$headerEnc.$payloadEnc", $this->jwt_secret, true);
-        $sigEnc = $this->base64UrlEncode($signature);
+        $payload = array_merge(
+            [
+                'iat' =>
+                    $now,
 
-        return "$headerEnc.$payloadEnc.$sigEnc";
+                'exp' =>
+                    $now +
+                    $this->payload_token_expiration,
+
+                'iss' =>
+                    $this->jwt_issuer,
+
+                'aud' =>
+                    $this->jwt_audience,
+
+                'jti' =>
+                    bin2hex(
+                        random_bytes(16)
+                    )
+            ],
+            $payload
+        );
+
+        $payloadEnc =
+            $this->base64UrlEncode(
+                json_encode($payload)
+            );
+
+        $signature =
+            hash_hmac(
+                'sha256',
+                "{$headerEnc}.{$payloadEnc}",
+                $this->jwt_secret,
+                true
+            );
+
+        $sigEnc =
+            $this->base64UrlEncode(
+                $signature
+            );
+
+        return "{$headerEnc}.{$payloadEnc}.{$sigEnc}";
     }
 
+
     /**
-     * decode_jwt
-     *
-     * @param string $token
-     * @return array<string,mixed>|null
+     * Decode JWT
      */
     public function decode_jwt($token)
     {
-        $parts = explode('.', $token);
-        if (count($parts) !== 3) return null;
+        if (
+            !is_string($token)
+            || trim($token) === ''
+        ) {
+            return null;
+        }
 
-        [$headerEnc, $payloadEnc, $sigEnc] = $parts;
+        $parts =
+            explode(
+                '.',
+                $token
+            );
 
-        $header = json_decode($this->base64UrlDecode($headerEnc), true);
-        if (($header['alg'] ?? '') !== 'HS256') return null;
+        if (count($parts) !== 3) {
+            return null;
+        }
 
-        $validSig = hash_hmac('sha256', "$headerEnc.$payloadEnc", $this->jwt_secret, true);
-        if (!hash_equals($this->base64UrlEncode($validSig), $sigEnc)) return null;
+        [
+            $headerEnc,
+            $payloadEnc,
+            $sigEnc
+        ] = $parts;
 
-        return json_decode($this->base64UrlDecode($payloadEnc), true);
-    }
+        $headerJson =
+            $this->base64UrlDecode(
+                $headerEnc
+            );
 
-    /**
-     * validate_jwt
-     *
-     * Verifies signature, timestamps, issuer, audience and token type.
-     * Access tokens and refresh tokens are not interchangeable: pass
-     * 'refresh' as $expected_type to validate a refresh token.
-     *
-     * @param string $token
-     * @param string $expected_type 'access' (default) or 'refresh'
-     * @return array<string,mixed>|null
-     */
-    public function validate_jwt($token, $expected_type = 'access')
-    {
-        $payload = $this->decode_jwt($token);
-        if (!$payload) return null;
+        $payloadJson =
+            $this->base64UrlDecode(
+                $payloadEnc
+            );
 
-        if (!isset($payload['sub'], $payload['exp'], $payload['iat'])) return null;
-        if ($payload['exp'] < time() || ($payload['iat'] ?? 0) > time()) return null;
-        if (($payload['iss'] ?? '') !== $this->jwt_issuer || ($payload['aud'] ?? '') !== $this->jwt_audience) return null;
-        if (($payload['type'] ?? 'access') !== $expected_type) return null;
+        if (
+            $headerJson === false
+            || $payloadJson === false
+        ) {
+            return null;
+        }
+
+        $header =
+            json_decode(
+                $headerJson,
+                true
+            );
+
+        $payload =
+            json_decode(
+                $payloadJson,
+                true
+            );
+
+        if (!is_array($header)) {
+            return null;
+        }
+
+        if (!is_array($payload)) {
+            return null;
+        }
+
+        if (
+            ($header['alg'] ?? '')
+            !== 'HS256'
+        ) {
+            return null;
+        }
+
+        $validSig =
+            hash_hmac(
+                'sha256',
+                "{$headerEnc}.{$payloadEnc}",
+                $this->jwt_secret,
+                true
+            );
+
+        $validSigEncoded =
+            $this->base64UrlEncode(
+                $validSig
+            );
+
+        if (
+            !hash_equals(
+                $validSigEncoded,
+                $sigEnc
+            )
+        ) {
+            return null;
+        }
 
         return $payload;
     }
 
-    /**
-     * get_bearer_token
-     *
-     * @return string|null
-     */
-    public function get_bearer_token()
-    {
-        $header = $_SERVER['HTTP_AUTHORIZATION'] ?? $_SERVER['REDIRECT_HTTP_AUTHORIZATION'] ?? '';
 
-        if (!$header && function_exists('apache_request_headers')) {
-            $headers = apache_request_headers();
-            $header = $headers['Authorization'] ?? '';
+    /**
+     * Validate JWT
+     */
+    public function validate_jwt(
+        $token,
+        $expected_type = 'access'
+    ) {
+        if (
+            !is_string($token)
+            || trim($token) === ''
+        ) {
+            return null;
         }
 
-        return preg_match('/Bearer\s(\S+)/i', $header, $matches) ? $matches[1] : null;
+        $payload =
+            $this->decode_jwt($token);
+
+        if (!is_array($payload)) {
+            return null;
+        }
+
+        if (
+            !isset(
+                $payload['sub'],
+                $payload['exp'],
+                $payload['iat']
+            )
+        ) {
+            return null;
+        }
+
+        $now = time();
+
+        if (
+            (int) $payload['exp']
+            < $now
+        ) {
+            return null;
+        }
+
+        if (
+            (int) $payload['iat']
+            > $now
+        ) {
+            return null;
+        }
+
+        if (
+            ($payload['iss'] ?? '')
+            !== $this->jwt_issuer
+        ) {
+            return null;
+        }
+
+        if (
+            ($payload['aud'] ?? '')
+            !== $this->jwt_audience
+        ) {
+            return null;
+        }
+
+        if (
+            ($payload['type'] ?? 'access')
+            !== $expected_type
+        ) {
+            return null;
+        }
+
+        return $payload;
     }
 
+
     /**
-     * scopes_for_role
+     * Get Bearer Token
      *
-     * Single source of truth for role to scope mapping. Scopes are always
-     * derived from the role stored in the database, never from token claims.
-     *
-     * @param string $role
-     * @return array
+     * FIXED:
+     * Proper regex for Authorization header.
+     */
+    public function get_bearer_token()
+{
+    $header =
+        $_SERVER['HTTP_AUTHORIZATION']
+        ?? $_SERVER['REDIRECT_HTTP_AUTHORIZATION']
+        ?? '';
+
+    if (
+        empty($header)
+        && function_exists(
+            'apache_request_headers'
+        )
+    ) {
+        $headers =
+            apache_request_headers();
+
+        $header =
+            $headers['Authorization']
+            ?? $headers['authorization']
+            ?? '';
+    }
+
+    if (
+        !is_string($header)
+        || trim($header) === ''
+    ) {
+        return null;
+    }
+
+    if (
+        preg_match(
+            '/Bearer\s+(\S+)/i',
+            $header,
+            $matches
+        )
+    ) {
+        return $matches[1];
+    }
+
+    return null;
+}
+
+    /**
+     * Role scopes
      */
     protected function scopes_for_role($role)
     {
         $role_scopes = [
-            'admin'  => ['read', 'write', 'delete'],
-            'editor' => ['read', 'write'],
-            'user'   => ['read'],
+            'admin' => [
+                'read',
+                'write',
+                'delete'
+            ],
+
+            'editor' => [
+                'read',
+                'write'
+            ],
+
+            'user' => [
+                'read'
+            ]
         ];
 
-        return $role_scopes[$role] ?? ['read'];
+        return
+            $role_scopes[$role]
+            ?? ['read'];
     }
 
+
     /**
-     * require_jwt
+     * Require JWT authentication
      *
-     * Validates the bearer token. When jwt_verify_user is enabled, the
-     * user must also exist in the users table, and the returned role and
-     * scopes come from the database instead of the token.
-     *
-     * @return array<string,mixed>
+     * FIXED:
+     * Never accesses array values when payload is null.
      */
     public function require_jwt()
     {
-        $token = $this->get_bearer_token();
-        $payload = $this->validate_jwt($token ?? '');
+        /*
+        |--------------------------------------------------------------------------
+        | Get Bearer Token
+        |--------------------------------------------------------------------------
+        */
 
-        if (!$payload) {
-            $this->respond_error('Unauthorized', 401);
+        $token =
+            $this->get_bearer_token();
+
+        if (
+            empty($token)
+        ) {
+            $this->respond_error(
+                'Unauthorized. Bearer token is required.',
+                401
+            );
         }
 
-        if ($this->verify_user) {
-            $stmt = $this->_lava->db->raw(
-                "SELECT id, role FROM {$this->users_table} WHERE id = ? LIMIT 1",
-                [$payload['sub']]
-            );
-            $user = $stmt->fetch(PDO::FETCH_ASSOC);
+        /*
+        |--------------------------------------------------------------------------
+        | Validate Access Token
+        |--------------------------------------------------------------------------
+        */
 
-            if (!$user) {
-                $this->respond_error('Unauthorized', 401);
+        $payload =
+            $this->validate_jwt(
+                $token,
+                'access'
+            );
+
+        if (
+            !is_array($payload)
+        ) {
+            $this->respond_error(
+                'Unauthorized. Invalid or expired token.',
+                401
+            );
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | Check Subject
+        |--------------------------------------------------------------------------
+        */
+
+        if (
+            !isset($payload['sub'])
+        ) {
+            $this->respond_error(
+                'Unauthorized. Invalid token payload.',
+                401
+            );
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | Verify User
+        |--------------------------------------------------------------------------
+        */
+
+        if (
+            $this->verify_user
+        ) {
+
+            $stmt =
+                $this->_lava->db->raw(
+                    "SELECT id, role
+                     FROM {$this->users_table}
+                     WHERE id = ?
+                     LIMIT 1",
+                    [
+                        $payload['sub']
+                    ]
+                );
+
+            $user =
+                $stmt->fetch(
+                    PDO::FETCH_ASSOC
+                );
+
+            if (
+                !is_array($user)
+            ) {
+                $this->respond_error(
+                    'Unauthorized. User not found.',
+                    401
+                );
             }
 
-            // Server-side values win over whatever the token claims.
-            $payload['role']   = $user['role'];
-            $payload['scopes'] = $this->scopes_for_role($user['role']);
+            /*
+            |--------------------------------------------------------------------------
+            | Server-side role and scopes
+            |--------------------------------------------------------------------------
+            */
+
+            $payload['role'] =
+                $user['role'];
+
+            $payload['scopes'] =
+                $this->scopes_for_role(
+                    $user['role']
+                );
         }
 
         return $payload;
     }
 
-    // --------------------------
-    // Auth: Token System
-    // --------------------------
+
+    /*
+    |--------------------------------------------------------------------------
+    | TOKEN SYSTEM
+    |--------------------------------------------------------------------------
+    */
+
+
     /**
-     * issue_tokens
-     *
-     * @param array<string,mixed> $user_data
-     * @return array<string,mixed>
+     * Issue Access + Refresh Tokens
      */
-    public function issue_tokens($user_data)
-    {
-        $user_id = $user_data['id'];
+    public function issue_tokens(
+        $user_data
+    ) {
+        if (
+            !is_array($user_data)
+            || !isset($user_data['id'])
+        ) {
+            $this->respond_error(
+                'Unable to issue tokens. Invalid user data.',
+                500
+            );
+        }
+
+        $user_id =
+            $user_data['id'];
+
         $now = time();
-        $scopes = $user_data['scopes'] ?? ['read'];
+
+        $scopes =
+            $user_data['scopes']
+            ?? ['read'];
+
+        /*
+        |--------------------------------------------------------------------------
+        | Access Token
+        |--------------------------------------------------------------------------
+        */
 
         $access_payload = [
-            'sub'   => $user_id,
-            'type'  => 'access',
-            'role'  => $user_data['role'] ?? 'user',
-            'scopes'=> $scopes,
+            'sub' =>
+                $user_id,
+
+            'type' =>
+                'access',
+
+            'role' =>
+                $user_data['role']
+                ?? 'user',
+
+            'scopes' =>
+                $scopes
         ];
+
+        /*
+        |--------------------------------------------------------------------------
+        | Refresh Token
+        |--------------------------------------------------------------------------
+        */
 
         $refresh_payload = [
-            'sub'  => $user_id,
-            'type' => 'refresh',
-            'jti'  => bin2hex(random_bytes(16)),
+            'sub' =>
+                $user_id,
+
+            'type' =>
+                'refresh',
+
+            'jti' =>
+                bin2hex(
+                    random_bytes(16)
+                )
         ];
 
-        $access_token  = $this->encode_jwt($access_payload);
-        $refresh_token = $this->encode_jwt($refresh_payload); // Raw for client
+        $access_token =
+            $this->encode_jwt(
+                $access_payload
+            );
 
-        // Hash for DB storage (secure + prevents exposure on DB breach)
-        $hashed_refresh = hash_hmac('sha256', (string) $refresh_token, $this->refresh_token_key);
+        $refresh_token =
+            $this->encode_jwt(
+                $refresh_payload
+            );
+
+        /*
+        |--------------------------------------------------------------------------
+        | Hash Refresh Token Before Database Storage
+        |--------------------------------------------------------------------------
+        */
+
+        $hashed_refresh =
+            hash_hmac(
+                'sha256',
+                (string) $refresh_token,
+                $this->refresh_token_key
+            );
 
         $this->cleanup_expired_refresh_tokens();
 
-        $expires_at = date('Y-m-d H:i:s', $now + $this->refresh_token_expiration);
+        $expires_at =
+            date(
+                'Y-m-d H:i:s',
+                $now +
+                $this->refresh_token_expiration
+            );
+
+        /*
+        |--------------------------------------------------------------------------
+        | Store Refresh Token
+        |--------------------------------------------------------------------------
+        */
 
         $this->_lava->db->raw(
-            "INSERT INTO {$this->refresh_token_table} (user_id, token, expires_at, jti) 
-             VALUES (?, ?, ?, ?)",
-            [$user_id, $hashed_refresh, $expires_at, $refresh_payload['jti']]
+            "INSERT INTO {$this->refresh_token_table}
+            (
+                user_id,
+                token,
+                expires_at,
+                jti
+            )
+            VALUES (?, ?, ?, ?)",
+            [
+                $user_id,
+                $hashed_refresh,
+                $expires_at,
+                $refresh_payload['jti']
+            ]
         );
 
+        /*
+        |--------------------------------------------------------------------------
+        | Return Tokens
+        |--------------------------------------------------------------------------
+        */
+
         return [
-            'access_token' => $access_token,
-            'refresh_token' => $refresh_token,
-            'expires_in'   => $this->payload_token_expiration,
-            'token_type'   => 'Bearer'
+            'access_token' =>
+                $access_token,
+
+            'refresh_token' =>
+                $refresh_token,
+
+            'expires_in' =>
+                $this->payload_token_expiration,
+
+            'token_type' =>
+                'Bearer'
         ];
     }
 
+
     /**
-     * refresh_access_token
-     *
-     * @param string $refresh_token
-     * @return void
+     * Refresh Access Token
      */
-    public function refresh_access_token($refresh_token)
-    {
-        // Only a token explicitly typed as "refresh" is accepted here.
-        $payload = $this->validate_jwt($refresh_token, 'refresh');
-        if (!$payload) {
-            $this->respond_error('Invalid refresh token', 403);
+    public function refresh_access_token(
+        $refresh_token
+    ) {
+        if (
+            empty($refresh_token)
+        ) {
+            $this->respond_error(
+                'Refresh token is required.',
+                400
+            );
         }
 
-        $hashed = hash_hmac('sha256', $refresh_token, $this->refresh_token_key);
+        /*
+        |--------------------------------------------------------------------------
+        | Validate Refresh JWT
+        |--------------------------------------------------------------------------
+        */
 
-        $stmt = $this->_lava->db->raw(
-            "SELECT * FROM {$this->refresh_token_table} 
-            WHERE token = ? AND expires_at > NOW() LIMIT 1",
-            [$hashed]
+        $payload =
+            $this->validate_jwt(
+                $refresh_token,
+                'refresh'
+            );
+
+        if (
+            !is_array($payload)
+        ) {
+            $this->respond_error(
+                'Invalid refresh token.',
+                403
+            );
+        }
+
+        if (
+            !isset($payload['sub'])
+        ) {
+            $this->respond_error(
+                'Invalid refresh token payload.',
+                403
+            );
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | Hash Refresh Token
+        |--------------------------------------------------------------------------
+        */
+
+        $hashed =
+            hash_hmac(
+                'sha256',
+                $refresh_token,
+                $this->refresh_token_key
+            );
+
+        /*
+        |--------------------------------------------------------------------------
+        | Check Database
+        |--------------------------------------------------------------------------
+        */
+
+        $stmt =
+            $this->_lava->db->raw(
+                "SELECT *
+                 FROM {$this->refresh_token_table}
+                 WHERE token = ?
+                 AND expires_at > NOW()
+                 LIMIT 1",
+                [
+                    $hashed
+                ]
+            );
+
+        $found =
+            $stmt->fetch(
+                PDO::FETCH_ASSOC
+            );
+
+        if (
+            !is_array($found)
+        ) {
+            $this->respond_error(
+                'Refresh token expired or revoked.',
+                403
+            );
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | Find User
+        |--------------------------------------------------------------------------
+        */
+
+        $user_stmt =
+            $this->_lava->db->raw(
+                "SELECT id, role
+                 FROM {$this->users_table}
+                 WHERE id = ?
+                 LIMIT 1",
+                [
+                    $payload['sub']
+                ]
+            );
+
+        $user =
+            $user_stmt->fetch(
+                PDO::FETCH_ASSOC
+            );
+
+        if (
+            !is_array($user)
+        ) {
+            $this->respond_error(
+                'User not found.',
+                403
+            );
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | Revoke Old Refresh Token
+        |--------------------------------------------------------------------------
+        */
+
+        $this->revoke_refresh_token(
+            $refresh_token
         );
-        $found = $stmt->fetch(PDO::FETCH_ASSOC);
 
-        if (!$found) {
-            $this->respond_error('Refresh token expired or revoked', 403);
-        }
+        /*
+        |--------------------------------------------------------------------------
+        | Issue New Tokens
+        |--------------------------------------------------------------------------
+        */
 
-        $user_stmt = $this->_lava->db->raw(
-            "SELECT id, role FROM {$this->users_table} WHERE id = ? LIMIT 1",
-            [$payload['sub']]
+        $new_tokens =
+            $this->issue_tokens(
+                [
+                    'id' =>
+                        $user['id'],
+
+                    'role' =>
+                        $user['role'],
+
+                    'scopes' =>
+                        $this->scopes_for_role(
+                            $user['role']
+                        )
+                ]
+            );
+
+        $this->respond(
+            [
+                'message' =>
+                    'Tokens refreshed successfully',
+
+                'tokens' =>
+                    $new_tokens
+            ]
         );
-        $user = $user_stmt->fetch(PDO::FETCH_ASSOC);
-
-        if (!$user) {
-            $this->respond_error('User not found', 403);
-        }
-
-        $this->revoke_refresh_token($refresh_token);
-
-        $new_tokens = $this->issue_tokens([
-            'id'     => $user['id'],
-            'role'   => $user['role'],
-            'scopes' => $this->scopes_for_role($user['role']),
-        ]);
-
-        $this->respond([
-            'message' => 'Tokens refreshed successfully',
-            'tokens'  => $new_tokens
-        ]);
     }
 
+
     /**
-     * revoke_refresh_token
-     *
-     * @param string $refresh_token
-     * @return void
+     * Revoke Refresh Token
      */
-    public function revoke_refresh_token($refresh_token)
-    {
-        $hashed = hash_hmac('sha256', $refresh_token, $this->refresh_token_key);
+    public function revoke_refresh_token(
+        $refresh_token
+    ) {
+        if (
+            empty($refresh_token)
+        ) {
+            return;
+        }
+
+        $hashed =
+            hash_hmac(
+                'sha256',
+                $refresh_token,
+                $this->refresh_token_key
+            );
+
         $this->_lava->db->raw(
-            "DELETE FROM {$this->refresh_token_table} WHERE token = ?",
-            [$hashed]
+            "DELETE
+             FROM {$this->refresh_token_table}
+             WHERE token = ?",
+            [
+                $hashed
+            ]
         );
     }
 
+
     /**
-     * cleanup_expired_refresh_tokens
-     *
-     * @param integer|null $user_id
-     * @return void
+     * Cleanup expired refresh tokens
      */
-    public function cleanup_expired_refresh_tokens($user_id = null): void
-    {
-        $sql = "DELETE FROM {$this->refresh_token_table} WHERE expires_at < NOW()";
+    public function cleanup_expired_refresh_tokens(
+        $user_id = null
+    ): void {
+        $sql =
+            "DELETE
+             FROM {$this->refresh_token_table}
+             WHERE expires_at < NOW()";
+
         $params = [];
 
-        if ($user_id !== null) {
-            $sql .= " AND user_id = ?";
-            $params[] = $user_id;
+        if (
+            $user_id !== null
+        ) {
+            $sql .=
+                " AND user_id = ?";
+
+            $params[] =
+                $user_id;
         }
 
-        $this->_lava->db->raw($sql, $params);
+        $this->_lava->db->raw(
+            $sql,
+            $params
+        );
     }
 
 
-    // --------------------------
-    // Basic Auth Support
-    // --------------------------
-    /**
-     * check_basic_auth
-     *
-     * @param string $valid_user
-     * @param string $valid_pass
-     * @return void
-     */
-    public function check_basic_auth($valid_user, $valid_pass)
-    {
-        $user = $_SERVER['PHP_AUTH_USER'] ?? '';
-        $pass = $_SERVER['PHP_AUTH_PW'] ?? '';
-        return hash_equals($user, $valid_user) && hash_equals($pass, $valid_pass);
-    }
+    /*
+    |--------------------------------------------------------------------------
+    | BASIC AUTH
+    |--------------------------------------------------------------------------
+    */
+
 
     /**
-     * require_basic_auth
-     *
-     * @param string $valid_user
-     * @param string $valid_pass
-     * @return void
+     * Check Basic Authentication
      */
-    public function require_basic_auth($valid_user, $valid_pass)
-    {
-        if (!$this->check_basic_auth($valid_user, $valid_pass)) {
-            header('WWW-Authenticate: Basic realm="API"');
-            $this->respond_error('Unauthorized', 401);
+    public function check_basic_auth(
+        $valid_user,
+        $valid_pass
+    ) {
+        $user =
+            $_SERVER['PHP_AUTH_USER']
+            ?? '';
+
+        $pass =
+            $_SERVER['PHP_AUTH_PW']
+            ?? '';
+
+        return
+            hash_equals(
+                $user,
+                $valid_user
+            )
+            &&
+            hash_equals(
+                $pass,
+                $valid_pass
+            );
+    }
+
+
+    /**
+     * Require Basic Authentication
+     */
+    public function require_basic_auth(
+        $valid_user,
+        $valid_pass
+    ) {
+        if (
+            !$this->check_basic_auth(
+                $valid_user,
+                $valid_pass
+            )
+        ) {
+            header(
+                'WWW-Authenticate: Basic realm="API"'
+            );
+
+            $this->respond_error(
+                'Unauthorized',
+                401
+            );
         }
     }
 }

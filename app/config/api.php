@@ -1,19 +1,22 @@
 <?php
+
 defined('PREVENT_DIRECT_ACCESS') OR exit('No direct script access allowed');
+
 
 /*
 |--------------------------------------------------------------------------
-| Enable/Disable API Helper
+| API HELPER
 |--------------------------------------------------------------------------
 */
 
-$config['api_helper_enabled'] = true;
+$config['api_helper_enabled'] = TRUE;
 
 
 /*
 |--------------------------------------------------------------------------
-| Payload Token Expiration
+| ACCESS TOKEN EXPIRATION
 |--------------------------------------------------------------------------
+| 15 minutes
 */
 
 $config['payload_token_expiration'] = 900;
@@ -21,8 +24,9 @@ $config['payload_token_expiration'] = 900;
 
 /*
 |--------------------------------------------------------------------------
-| Refresh Token Expiration
+| REFRESH TOKEN EXPIRATION
 |--------------------------------------------------------------------------
+| 7 days
 */
 
 $config['refresh_token_expiration'] = 604800;
@@ -30,27 +34,43 @@ $config['refresh_token_expiration'] = 604800;
 
 /*
 |--------------------------------------------------------------------------
-| JWT Secret Token
+| JWT SECRET
 |--------------------------------------------------------------------------
+| IMPORTANT:
+| Must be at least 32 characters.
+|
+| For Render, set JWT_SECRET in Environment Variables.
 */
 
-$config['jwt_secret'] = getenv('JWT_SECRET' ?: '');
-    '';
+$config['jwt_secret'] = getenv('JWT_SECRET');
+
+if (empty($config['jwt_secret'])) {
+    $config['jwt_secret'] =
+        'LavaLustJWTSecretKeyForLabExercise2026Secure123!';
+}
 
 
 /*
 |--------------------------------------------------------------------------
-| Refresh Token Key
+| REFRESH TOKEN KEY
 |--------------------------------------------------------------------------
+| IMPORTANT:
+| Must be at least 32 characters.
+|
+| For Render, set REFRESH_TOKEN_KEY in Environment Variables.
 */
 
-$config['refresh_token_key'] = getenv('REFRESH_TOKEN_KEY' ?: '');
-    '';
+$config['refresh_token_key'] = getenv('REFRESH_TOKEN_KEY');
+
+if (empty($config['refresh_token_key'])) {
+    $config['refresh_token_key'] =
+        'LavaLustRefreshTokenKeyForLabExercise2026Secure123!';
+}
 
 
 /*
 |--------------------------------------------------------------------------
-| Verify User On Each Request
+| JWT VERIFY USER
 |--------------------------------------------------------------------------
 */
 
@@ -59,7 +79,7 @@ $config['jwt_verify_user'] = TRUE;
 
 /*
 |--------------------------------------------------------------------------
-| Users Table
+| USERS TABLE
 |--------------------------------------------------------------------------
 */
 
@@ -68,64 +88,68 @@ $config['users_table'] = 'users';
 
 /*
 |--------------------------------------------------------------------------
-| Access-Control-Allow-Origin
+| CORS
 |--------------------------------------------------------------------------
 */
 
 $config['allow_origin'] = [
     'http://localhost:3000',
-    'http://localhost:5182',
+    'http://localhost:5173',
     'http://localhost:5174',
     'http://localhost:5175',
-    'http://127.0.0.1:5182',
+    'http://localhost:5182',
+
+    'http://127.0.0.1:3000',
+    'http://127.0.0.1:5173',
     'http://127.0.0.1:5174',
     'http://127.0.0.1:5175',
+    'http://127.0.0.1:5182',
+
     'https://pomeda-gretchen123-lavaapi.vercel.app'
 ];
 
 
 /*
 |--------------------------------------------------------------------------
-| Refresh Token Table
+| REFRESH TOKEN TABLE
 |--------------------------------------------------------------------------
 */
 
-$config['refresh_token_table'] =
-    'refresh_tokens';
+$config['refresh_token_table'] = 'refresh_tokens';
 
 
 /*
 |--------------------------------------------------------------------------
-| JWT Issuer
+| JWT ISSUER
 |--------------------------------------------------------------------------
 */
 
 $config['jwt_issuer'] =
-    'your-app';
+    'https://pomeda-gretchen123-lavaapi.onrender.com';
 
 
 /*
 |--------------------------------------------------------------------------
-| JWT Audience
+| JWT AUDIENCE
 |--------------------------------------------------------------------------
 */
 
 $config['jwt_audience'] =
-    'your-app-clients';
+    'https://pomeda-gretchen123-lavaapi.vercel.app';
 
 
 /*
 |--------------------------------------------------------------------------
-| Rate Limiting
+| RATE LIMITING
 |--------------------------------------------------------------------------
 */
 
-$config['rate_limit_enabled'] = true;
+$config['rate_limit_enabled'] = TRUE;
 
 
 /*
 |--------------------------------------------------------------------------
-| Rate Limiting Requests
+| RATE LIMIT REQUESTS
 |--------------------------------------------------------------------------
 */
 
@@ -134,7 +158,7 @@ $config['rate_limit_requests'] = 60;
 
 /*
 |--------------------------------------------------------------------------
-| Rate Limiting Seconds
+| RATE LIMIT SECONDS
 |--------------------------------------------------------------------------
 */
 

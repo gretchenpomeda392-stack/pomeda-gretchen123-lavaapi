@@ -1,202 +1,136 @@
 import axios from "axios";
 
-
-// ========================================
-// LAVALUST API URL
-// ========================================
-
-// PALITAN ITO NG ACTUAL RENDER BACKEND URL
-const API_URL = "https://pomeda-gretchen123-lavaapi.onrender.com";
-
-
-// ========================================
-// AXIOS INSTANCE
-// ========================================
-
 const api = axios.create({
-    baseURL: API_URL,
+    baseURL: import.meta.env.VITE_API_URL,
     headers: {
         "Content-Type": "application/json",
         "Accept": "application/json"
     }
 });
 
-// ========================================
-// ADD TOKEN AUTOMATICALLY
-// ========================================
-
-api.interceptors.request.use(
-    (config) => {
-
-        const token =
-            localStorage.getItem("access_token");
-
-        if (token) {
-            config.headers.Authorization =
-                `Bearer ${token}`;
-        }
-
-        return config;
-    },
-
-
-    (error) => {
-        return Promise.reject(error);
-    }
-);
-
-
-// ========================================
-// ERROR HANDLER
-// ========================================
-
-function handleError(error) {
-
-    console.error("API ERROR:", error);
-
-    if (error.response) {
-
-        console.error(
-            "STATUS:",
-            error.response.status
-        );
-
-        console.error(
-            "DATA:",
-            error.response.data
-        );
-
-        const data =
-            error.response.data;
-
-        throw new Error(
-            data?.message ||
-            data?.error ||
-            `HTTP Error ${error.response.status}`
-        );
-    }
-
-    if (error.request) {
-
-        throw new Error(
-            "Unable to connect to the API server."
-        );
-    }
-
-    throw new Error(
-        error.message ||
-        "Something went wrong."
-    );
-}
-
-
-// ========================================
 // REGISTER
-// POST /register
-// ========================================
-
 export async function register(
     username,
     email,
     password,
-    role
+    role = "user"
 ) {
-
     try {
+        const response = await api.post(
+            "/register",
+            {
+                username,
+                email,
+                password,
+                role
+            }
+        );
 
-        const response =
-            await api.post(
-                "/register",
-                {
-                    username,
-                    email,
-                    password,
-                    role
-                }
-            );
+        console.log(
+            "REGISTER RESPONSE:",
+            response.data
+        );
 
         return response.data;
 
     } catch (error) {
 
-        handleError(error);
+        console.error(
+            "REGISTER ERROR:",
+            error
+        );
+
+        if (error.response) {
+            throw new Error(
+                error.response.data?.message ||
+                error.response.data?.error ||
+                `HTTP Error ${error.response.status}`
+            );
+        }
+
+        throw new Error(
+            "Unable to connect to the API server."
+        );
     }
 }
 
-
-// ========================================
 // LOGIN
-// POST /login
-// ========================================
-
 export async function login(
     username,
     password
 ) {
-
     try {
+        const response = await api.post(
+            "/login",
+            {
+                username,
+                password
+            }
+        );
 
-        const response =
-            await api.post(
-                "/login",
-                {
-                    username,
-                    password
-                }
-            );
+        console.log(
+            "LOGIN RESPONSE:",
+            response.data
+        );
 
-        const data =
-            response.data;
+        const data = response.data;
 
+        const accessToken =
+            data?.access_token ||
+            data?.tokens?.access_token ||
+            data?.token ||
+            null;
 
-        // ACCESS TOKEN
-        if (
-            data?.tokens?.access_token
-        ) {
+        const refreshToken =
+            data?.refresh_token ||
+            data?.tokens?.refresh_token ||
+            null;
 
+        if (accessToken) {
             localStorage.setItem(
                 "access_token",
-                data.tokens.access_token
+                accessToken
             );
         }
 
-
-        // REFRESH TOKEN
-        if (
-            data?.tokens?.refresh_token
-        ) {
-
+        if (refreshToken) {
             localStorage.setItem(
                 "refresh_token",
-                data.tokens.refresh_token
+                refreshToken
             );
         }
 
-
-        // USER
         if (data?.user) {
-
             localStorage.setItem(
                 "user",
                 JSON.stringify(data.user)
             );
         }
 
-
         return data;
 
     } catch (error) {
 
-        handleError(error);
+        console.error(
+            "LOGIN ERROR:",
+            error
+        );
+
+        if (error.response) {
+            throw new Error(
+                error.response.data?.message ||
+                error.response.data?.error ||
+                `HTTP Error ${error.response.status}`
+            );
+        }
+
+        throw new Error(
+            "Unable to connect to the API server."
+        );
     }
 }
 
-
-// ========================================
 // LOGOUT
-// POST /logout
-// ========================================
-
 export async function logout() {
 
     const refreshToken =
@@ -205,152 +139,56 @@ export async function logout() {
         );
 
     try {
-
         await api.post(
             "/logout",
             {
-                refresh_token:
-                    refreshToken
+                refresh_token: refreshToken
             }
         );
+    } catch (error) {
+        console.error(
+            "LOGOUT ERROR:",
+            error
+        );
+    }
+
+    localStorage.removeItem(
+        "access_token"
+    );
+
+    localStorage.removeItem(
+        "refresh_token"
+    );
+
+    localStorage.removeItem(
+        "user"
+    );
+}
+
+// GET PRODUCTS
+export async function getProducts() {
+
+    try {
+        const response =
+            await api.get("/products");
+
+        return response.data;
 
     } catch (error) {
 
         console.error(
-            "Logout error:",
+            "GET PRODUCTS ERROR:",
             error
         );
 
-    } finally {
-
-        localStorage.removeItem(
-            "access_token"
-        );
-
-        localStorage.removeItem(
-            "refresh_token"
-        );
-
-        localStorage.removeItem(
-            "user"
-        );
+        throw error;
     }
 }
 
-
-// ========================================
-// REFRESH TOKEN
-// POST /refresh-token
-// ========================================
-
-export async function refreshToken() {
-
-    const refresh_token =
-        localStorage.getItem(
-            "refresh_token"
-        );
-
-    try {
-
-        const response =
-            await api.post(
-                "/refresh-token",
-                {
-                    refresh_token
-                }
-            );
-
-        const data =
-            response.data;
-
-
-        if (
-            data?.tokens?.access_token
-        ) {
-
-            localStorage.setItem(
-                "access_token",
-                data.tokens.access_token
-            );
-        }
-
-
-        if (
-            data?.tokens?.refresh_token
-        ) {
-
-            localStorage.setItem(
-                "refresh_token",
-                data.tokens.refresh_token
-            );
-        }
-
-
-        return data;
-
-    } catch (error) {
-
-        handleError(error);
-    }
-}
-
-
-// ========================================
-// PROFILE
-// GET /profile
-// ========================================
-
-export async function getProfile() {
-
-    try {
-
-        const response =
-            await api.get(
-                "/profile"
-            );
-
-        return response.data;
-
-    } catch (error) {
-
-        handleError(error);
-    }
-}
-
-
-// ========================================
-// PRODUCTS
-// ========================================
-
-
-// GET ALL
-// GET /products
-
-export async function getProducts() {
-
-    try {
-
-        const response =
-            await api.get(
-                "/products"
-            );
-
-        return response.data;
-
-    } catch (error) {
-
-        handleError(error);
-    }
-}
-
-
-// GET ONE
-// GET /products/:id
-
+// GET ONE PRODUCT
 export async function getProduct(id) {
 
     try {
-
         const response =
             await api.get(
                 `/products/${id}`
@@ -360,20 +198,19 @@ export async function getProduct(id) {
 
     } catch (error) {
 
-        handleError(error);
+        console.error(
+            "GET PRODUCT ERROR:",
+            error
+        );
+
+        throw error;
     }
 }
 
-
-// CREATE
-// POST /products
-
-export async function createProduct(
-    product
-) {
+// CREATE PRODUCT
+export async function createProduct(product) {
 
     try {
-
         const response =
             await api.post(
                 "/products",
@@ -384,21 +221,22 @@ export async function createProduct(
 
     } catch (error) {
 
-        handleError(error);
+        console.error(
+            "CREATE PRODUCT ERROR:",
+            error
+        );
+
+        throw error;
     }
 }
 
-
-// UPDATE
-// PUT /products/:id
-
+// UPDATE PRODUCT
 export async function updateProduct(
     id,
     product
 ) {
 
     try {
-
         const response =
             await api.put(
                 `/products/${id}`,
@@ -409,20 +247,19 @@ export async function updateProduct(
 
     } catch (error) {
 
-        handleError(error);
+        console.error(
+            "UPDATE PRODUCT ERROR:",
+            error
+        );
+
+        throw error;
     }
 }
 
-
-// DELETE
-// DELETE /products/:id
-
-export async function deleteProduct(
-    id
-) {
+// DELETE PRODUCT
+export async function deleteProduct(id) {
 
     try {
-
         const response =
             await api.delete(
                 `/products/${id}`
@@ -432,9 +269,13 @@ export async function deleteProduct(
 
     } catch (error) {
 
-        handleError(error);
+        console.error(
+            "DELETE PRODUCT ERROR:",
+            error
+        );
+
+        throw error;
     }
 }
-
 
 export default api;

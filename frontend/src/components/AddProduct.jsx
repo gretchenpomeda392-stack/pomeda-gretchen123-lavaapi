@@ -24,6 +24,9 @@ function AddProduct() {
     const [error, setError] =
         useState("");
 
+    const [success, setSuccess] =
+        useState("");
+
     const [loading, setLoading] =
         useState(false);
 
@@ -31,24 +34,59 @@ function AddProduct() {
         e.preventDefault();
 
         setError("");
+        setSuccess("");
         setLoading(true);
 
         try {
-            await createProduct({
-                product_name: productName,
-                description: description,
-                price: price,
-                quantity: quantity
+
+            const response = await createProduct({
+                product_name: productName.trim(),
+                description: description.trim(),
+                price: Number(price),
+                quantity: Number(quantity)
             });
 
-            navigate("/products");
+            console.log(
+                "CREATE PRODUCT RESPONSE:",
+                response
+            );
+
+            setSuccess(
+                response?.message ||
+                "Product created successfully."
+            );
+
+            /*
+             * Small delay so the success message
+             * can be seen before returning to list.
+             */
+
+            setTimeout(() => {
+                navigate("/products", {
+                    replace: true,
+                    state: {
+                        refresh: true,
+                        message:
+                            response?.message ||
+                            "Product created successfully."
+                    }
+                });
+            }, 500);
 
         } catch (error) {
+
+            console.error(
+                "CREATE PRODUCT ERROR:",
+                error
+            );
+
             setError(
                 error.message ||
                 "Unable to create product."
             );
+
         } finally {
+
             setLoading(false);
         }
     };
@@ -92,6 +130,12 @@ function AddProduct() {
                     </p>
                 )}
 
+                {success && (
+                    <p className="success">
+                        {success}
+                    </p>
+                )}
+
                 <form
                     className="product-form"
                     onSubmit={handleSubmit}
@@ -112,6 +156,7 @@ function AddProduct() {
                                     e.target.value
                                 )
                             }
+                            maxLength={100}
                             required
                         />
 

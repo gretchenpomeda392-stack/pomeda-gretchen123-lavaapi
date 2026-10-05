@@ -1,6 +1,11 @@
-import { useEffect, useState } from "react";
+import {
+    useEffect,
+    useState
+} from "react";
+
 import {
     Link,
+    useLocation,
     useNavigate
 } from "react-router-dom";
 
@@ -11,52 +16,127 @@ import {
 } from "../api";
 
 function Products() {
-    const navigate = useNavigate();
 
-    const [products, setProducts] = useState([]);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState("");
-    const [message, setMessage] = useState("");
+    const navigate = useNavigate();
+    const location = useLocation();
+
+    const [products, setProducts] =
+        useState([]);
+
+    const [loading, setLoading] =
+        useState(true);
+
+    const [error, setError] =
+        useState("");
+
+    const [message, setMessage] =
+        useState("");
 
     const loadProducts = async () => {
+
         setLoading(true);
         setError("");
 
         try {
-            const response = await getProducts();
 
-            setProducts(
-                response.data || []
+            const response =
+                await getProducts();
+
+            console.log(
+                "GET PRODUCTS RESPONSE:",
+                response
             );
 
+            /*
+             * API response:
+             *
+             * {
+             *   message: "...",
+             *   data: [...]
+             * }
+             */
+
+            if (
+                response &&
+                Array.isArray(response.data)
+            ) {
+
+                setProducts(
+                    response.data
+                );
+
+            } else {
+
+                setProducts([]);
+            }
+
         } catch (error) {
+
+            console.error(
+                "LOAD PRODUCTS ERROR:",
+                error
+            );
+
             setError(
                 error.message ||
                 "Unable to load products."
             );
+
         } finally {
+
             setLoading(false);
         }
     };
 
     useEffect(() => {
+
         const token =
             localStorage.getItem(
                 "access_token"
             );
 
         if (!token) {
-            navigate("/login");
+
+            navigate(
+                "/login",
+                { replace: true }
+            );
+
             return;
         }
 
+        if (
+            location.state?.message
+        ) {
+
+            setMessage(
+                location.state.message
+            );
+
+            /*
+             * Remove state so the message
+             * does not keep appearing.
+             */
+
+            window.history.replaceState(
+                {},
+                document.title,
+                window.location.pathname
+            );
+        }
+
         loadProducts();
+
     }, []);
 
-    const handleDelete = async (product) => {
-        const confirmed = window.confirm(
-            `Are you sure you want to delete "${product.product_name}"?`
-        );
+    const handleDelete = async (
+        product
+    ) => {
+
+        const confirmed =
+            window.confirm(
+                `Are you sure you want to delete "${product.product_name}"?`
+            );
 
         if (!confirmed) {
             return;
@@ -66,19 +146,26 @@ function Products() {
         setMessage("");
 
         try {
+
             const response =
                 await deleteProduct(
                     product.id
                 );
 
             setMessage(
-                response.message ||
+                response?.message ||
                 "Product deleted successfully."
             );
 
             await loadProducts();
 
         } catch (error) {
+
+            console.error(
+                "DELETE PRODUCT ERROR:",
+                error
+            );
+
             setError(
                 error.message ||
                 "Unable to delete product."
@@ -87,9 +174,13 @@ function Products() {
     };
 
     const handleLogout = async () => {
+
         await logout();
 
-        navigate("/login");
+        navigate(
+            "/login",
+            { replace: true }
+        );
     };
 
     return (
@@ -101,6 +192,10 @@ function Products() {
                     <h1>
                         Welcome to Product Lists
                     </h1>
+
+                    <p>
+                        Manage your products
+                    </p>
                 </div>
 
                 <button
@@ -148,13 +243,19 @@ function Products() {
                 )}
 
                 {loading ? (
+
                     <div className="empty-state">
+
                         <p>
                             Loading products...
                         </p>
+
                     </div>
+
                 ) : products.length === 0 ? (
+
                     <div className="empty-state">
+
                         <h3>
                             No Products Yet
                         </h3>
@@ -163,28 +264,56 @@ function Products() {
                             Add your first product
                             to get started.
                         </p>
+
                     </div>
+
                 ) : (
+
                     <div className="table-container">
 
                         <table className="product-table">
 
                             <thead>
+
                                 <tr>
-                                    <th>ID</th>
-                                    <th>Product Name</th>
-                                    <th>Description</th>
-                                    <th>Price</th>
-                                    <th>Quantity</th>
-                                    <th>Created At</th>
-                                    <th>Actions</th>
+
+                                    <th>
+                                        ID
+                                    </th>
+
+                                    <th>
+                                        Product Name
+                                    </th>
+
+                                    <th>
+                                        Description
+                                    </th>
+
+                                    <th>
+                                        Price
+                                    </th>
+
+                                    <th>
+                                        Quantity
+                                    </th>
+
+                                    <th>
+                                        Created At
+                                    </th>
+
+                                    <th>
+                                        Actions
+                                    </th>
+
                                 </tr>
+
                             </thead>
 
                             <tbody>
 
                                 {products.map(
                                     (product) => (
+
                                         <tr
                                             key={
                                                 product.id
@@ -265,6 +394,7 @@ function Products() {
                                             </td>
 
                                         </tr>
+
                                     )
                                 )}
 
@@ -273,6 +403,7 @@ function Products() {
                         </table>
 
                     </div>
+
                 )}
 
             </div>
