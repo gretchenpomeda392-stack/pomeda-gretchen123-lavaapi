@@ -44,7 +44,7 @@ defined('PREVENT_DIRECT_ACCESS') OR exit('No direct script access allowed');
 | below (see their notes). The API library refuses to start otherwise.
 |
 */
-$config['api_helper_enabled'] = FALSE;
+$config['api_helper_enabled'] = true;
 
 /*
 |--------------------------------------------------------------------------
@@ -87,7 +87,7 @@ $config['refresh_token_expiration'] = 604800;
 | committed or exposed, rotate it. All existing tokens become invalid.
 |
 */
-$config['jwt_secret'] = getenv('JWT_SECRET') ?: '';
+$config['jwt_secret'] = 'labact6_jwt_secret_2026_secure_key_123456789';
 
 /*
 |--------------------------------------------------------------------------
@@ -106,8 +106,7 @@ $config['jwt_secret'] = getenv('JWT_SECRET') ?: '';
 |   php -r "echo bin2hex(random_bytes(32));"
 |
 */
-$config['refresh_token_key'] = getenv('REFRESH_TOKEN_KEY') ?: '';
-
+$config['refresh_token_key'] = 'labact6_refresh_token_2026_secure_key_987654321';
 /*
 |--------------------------------------------------------------------------
 | Verify User On Each Request
@@ -145,7 +144,11 @@ $config['users_table'] = 'users';
 | a browser, so set your real domain in production.
 |
 */
-$config['allow_origin'] = '*';
+$config['allow_origin'] = [
+    'https://localhost:5174',
+    'http://localhost:5175',
+    'http://127.0.0.1:3000'
+];
 
 /*
 |--------------------------------------------------------------------------
@@ -165,7 +168,7 @@ $config['refresh_token_table'] = 'refresh_tokens';
 | application's name or URL.
 |
 */
-$config['jwt_issuer'] = 'your-app';
+$config['jwt_issuer'] = 'http://127.0.0.1:3000';
 
 /*
 |--------------------------------------------------------------------------
@@ -175,8 +178,8 @@ $config['jwt_issuer'] = 'your-app';
 | the clients allowed to use the tokens.
 |
 */
-
-$config['jwt_audience'] = 'your-app-clients';
+    
+$config['jwt_audience'] = 'http://127.0.0.1:3000';
 
 /*
 |--------------------------------------------------------------------------

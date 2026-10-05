@@ -42,8 +42,10 @@ class Create_refresh_tokens_table {
                     'null' => FALSE,
                 ],
             ])
-            ->add_key('id', primary: TRUE)
-            ->add_key('user_id', name: 'user_id_idx')
+            ->add_key('id', TRUE)
+            ->add_key('username', TRUE, FALSE, 'username_unique')
+            ->add_key('email', FALSE, FALSE, 'email_idx')
+            ->add_key('role', FALSE, FALSE, 'role_idx')
             ->create_table('refresh_tokens');
     }
 

@@ -116,7 +116,7 @@ class DBForge {
      * @param  array $fields
      * @return $this
      */
-    public function add_field(array $fields): static
+    public function add_field(array $fields)
     {
         foreach ($fields as $field => $details) {
             if ( ! is_string($field) || trim($field) === '') {
@@ -143,7 +143,7 @@ class DBForge {
      * @param  string|null  $name     Optional index name
      * @return $this
      */
-    public function add_key($key, bool $primary = false, bool $unique = false, ?string $name = null): static
+public function add_key($key, bool $primary = false, bool $unique = false, ?string $name = null)
     {
         $columns = (array) $key;
 
@@ -180,7 +180,7 @@ class DBForge {
         string $reference_field,
         string $on_delete = 'CASCADE',
         string $on_update = 'CASCADE'
-    ): static {
+    ) {
         $allowed_actions = ['CASCADE', 'SET NULL', 'RESTRICT', 'NO ACTION', 'SET DEFAULT'];
 
         $on_delete = strtoupper($on_delete);

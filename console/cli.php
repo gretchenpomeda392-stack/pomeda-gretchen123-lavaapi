@@ -78,7 +78,7 @@ $flags      = [];
 $positional = [];
 
 for ($i = 2; $i < $argc; $i++) {
-    if (str_starts_with($argv[$i], '--')) {
+    if (substr($argv[$i], 0, 2) === '--') {
         // --key=value  or  --key (boolean)
         $pair = explode('=', ltrim($argv[$i], '-'), 2);
         $flags[$pair[0]] = $pair[1] ?? true;

@@ -48,8 +48,8 @@ if (file_exists(ROOT_DIR . '.env')) {
         $line = trim($line);
 
         // Skip comments and lines without =
-        if ($line[0] === '#' || !str_contains($line, '=')) continue;
-
+        if ($line[0] === '#' || strpos($line, '=') === false) continue;
+		
         [$key, $value] = explode('=', $line, 2);
         $key   = trim($key);
         $value = trim($value);
