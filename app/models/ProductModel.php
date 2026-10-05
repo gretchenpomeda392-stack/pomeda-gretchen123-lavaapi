@@ -1,20 +1,15 @@
 <?php
-
 defined('PREVENT_DIRECT_ACCESS') OR exit('No direct script access allowed');
 
-class ProductModel extends Model
-{
+/**
+ * Model: ProductModel
+ * 
+ * Automatically generated via CLI.
+ */
+class ProductModel extends Model {
     protected $table = 'products';
     protected $primary_key = 'id';
-
-    protected $fillable = [
-        'product_name',
-        'description',
-        'price',
-        'quantity',
-        'created_at'
-    ];
-
+    protected $fillable = [];
     protected $guarded = ['id'];
 
     public function __construct()
@@ -22,22 +17,10 @@ class ProductModel extends Model
         parent::__construct();
     }
 
-    /*
-    |--------------------------------------------------------------------------
-    | GET ALL PRODUCTS
-    |--------------------------------------------------------------------------
-    */
-
     public function getAll()
     {
         $stmt = $this->db->raw(
-            "SELECT
-                id,
-                product_name,
-                description,
-                price,
-                quantity,
-                created_at
+            "SELECT id, product_name, description, price, quantity, created_at
              FROM products
              ORDER BY id DESC"
         );
@@ -45,22 +28,17 @@ class ProductModel extends Model
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
+
     /*
     |--------------------------------------------------------------------------
-    | GET PRODUCT BY ID
+    | GET SINGLE PRODUCT
     |--------------------------------------------------------------------------
     */
 
     public function getById($id)
     {
         $stmt = $this->db->raw(
-            "SELECT
-                id,
-                product_name,
-                description,
-                price,
-                quantity,
-                created_at
+            "SELECT id, product_name, description, price, quantity, created_at
              FROM products
              WHERE id = ?
              LIMIT 1",
@@ -69,6 +47,7 @@ class ProductModel extends Model
 
         return $stmt->fetch(PDO::FETCH_ASSOC);
     }
+
 
     /*
     |--------------------------------------------------------------------------
@@ -80,15 +59,8 @@ class ProductModel extends Model
     {
         $stmt = $this->db->raw(
             "INSERT INTO products
-                (
-                    product_name,
-                    description,
-                    price,
-                    quantity,
-                    created_at
-                )
-             VALUES
-                (?, ?, ?, ?, ?)",
+            (product_name, description, price, quantity, created_at)
+            VALUES (?, ?, ?, ?, ?)",
             [
                 $data['product_name'],
                 $data['description'],
@@ -98,12 +70,9 @@ class ProductModel extends Model
             ]
         );
 
-        if (!$stmt) {
-            return false;
-        }
-
-        return $this->db->last_id();
+        return $this->db->last_insert_id();
     }
+
 
     /*
     |--------------------------------------------------------------------------
@@ -115,11 +84,10 @@ class ProductModel extends Model
     {
         $stmt = $this->db->raw(
             "UPDATE products
-             SET
-                product_name = ?,
-                description = ?,
-                price = ?,
-                quantity = ?
+             SET product_name = ?,
+                 description = ?,
+                 price = ?,
+                 quantity = ?
              WHERE id = ?",
             [
                 $data['product_name'],
@@ -132,6 +100,7 @@ class ProductModel extends Model
 
         return $stmt->rowCount();
     }
+
 
     /*
     |--------------------------------------------------------------------------

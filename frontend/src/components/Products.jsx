@@ -1,413 +1,186 @@
-import {
-    useEffect,
-    useState
-} from "react";
+import { useEffect, useState } from "react";
+import { getProducts, createProduct, updateProduct, deleteProduct } from "../api";
+import AddProduct from "./AddProduct";
+import EditProduct from "./EditProduct";
 
-import {
-    Link,
-    useLocation,
-    useNavigate
-} from "react-router-dom";
+function Products({ onLogout }) {
+    const [products, setProducts] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState("");
 
-import {
-    getProducts,
-    deleteProduct,
-    logout
-} from "../api";
+    // View State: "list" | "add" | "edit"
+    const [view, setView] = useState("list");
+    const [selectedProduct, setSelectedProduct] = useState(null);
 
-function Products() {
-
-    const navigate = useNavigate();
-    const location = useLocation();
-
-    const [products, setProducts] =
-        useState([]);
-
-    const [loading, setLoading] =
-        useState(true);
-
-    const [error, setError] =
-        useState("");
-
-    const [message, setMessage] =
-        useState("");
+    useEffect(() => {
+        loadProducts();
+    }, []);
 
     const loadProducts = async () => {
-
-        setLoading(true);
-        setError("");
-
         try {
+            const response = await getProducts();
+            const fetchedProducts = response.data || [];
 
-            const response =
-                await getProducts();
-
-            console.log(
-                "GET PRODUCTS RESPONSE:",
-                response
+            // Ascending sort sa ID: Para sa pinakababa/dulo mapunta ang bagong add
+            const sortedProducts = [...fetchedProducts].sort(
+                (a, b) => Number(a.id) - Number(b.id)
             );
 
-            /*
-             * API response:
-             *
-             * {
-             *   message: "...",
-             *   data: [...]
-             * }
-             */
-
-            if (
-                response &&
-                Array.isArray(response.data)
-            ) {
-
-                setProducts(
-                    response.data
-                );
-
-            } else {
-
-                setProducts([]);
-            }
-
-        } catch (error) {
-
-            console.error(
-                "LOAD PRODUCTS ERROR:",
-                error
-            );
-
-            setError(
-                error.message ||
-                "Unable to load products."
-            );
-
+            setProducts(sortedProducts);
+        } catch (err) {
+            console.error("PRODUCT ERROR:", err);
+            setError(err.message || "Failed to load products.");
         } finally {
-
             setLoading(false);
         }
     };
 
-    useEffect(() => {
-
-        const token =
-            localStorage.getItem(
-                "access_token"
-            );
-
-        if (!token) {
-
-            navigate(
-                "/login",
-                { replace: true }
-            );
-
-            return;
-        }
-
-        if (
-            location.state?.message
-        ) {
-
-            setMessage(
-                location.state.message
-            );
-
-            /*
-             * Remove state so the message
-             * does not keep appearing.
-             */
-
-            window.history.replaceState(
-                {},
-                document.title,
-                window.location.pathname
-            );
-        }
-
-        loadProducts();
-
-    }, []);
-
-    const handleDelete = async (
-        product
-    ) => {
-
-        const confirmed =
-            window.confirm(
-                `Are you sure you want to delete "${product.product_name}"?`
-            );
-
-        if (!confirmed) {
-            return;
-        }
-
-        setError("");
-        setMessage("");
-
+    // Handle Add Product
+    const handleAddProduct = async (formData) => {
         try {
-
-            const response =
-                await deleteProduct(
-                    product.id
-                );
-
-            setMessage(
-                response?.message ||
-                "Product deleted successfully."
-            );
-
+            await createProduct(formData);
             await loadProducts();
-
-        } catch (error) {
-
-            console.error(
-                "DELETE PRODUCT ERROR:",
-                error
-            );
-
-            setError(
-                error.message ||
-                "Unable to delete product."
-            );
+            setView("list");
+        } catch (err) {
+            alert(err.message || "Failed to add product.");
         }
     };
 
-    const handleLogout = async () => {
-
-        await logout();
-
-        navigate(
-            "/login",
-            { replace: true }
-        );
+    // Handle Edit Product
+    const handleUpdateProduct = async (id, formData) => {
+        try {
+            await updateProduct(id, formData);
+            await loadProducts();
+            setView("list");
+        } catch (err) {
+            alert(err.message || "Failed to update product.");
+        }
     };
+
+    // Handle Delete Product
+    const handleDelete = async (id) => {
+        if (window.confirm("Are you sure you want to delete this product?")) {
+            try {
+                await deleteProduct(id);
+                loadProducts();
+            } catch (err) {
+                alert(err.message || "Failed to delete product.");
+            }
+        }
+    };
+
+    const handleOpenEdit = (product) => {
+        setSelectedProduct(product);
+        setView("edit");
+    };
+
+    if (loading) {
+        return (
+            <div className="card-wrapper">
+                <div className="products-card">
+                    <p>Loading products...</p>
+                </div>
+            </div>
+        );
+    }
+
+    if (error) {
+        return (
+            <div className="card-wrapper">
+                <div className="products-card">
+                    <p className="error">{error}</p>
+                </div>
+            </div>
+        );
+    }
+
+    if (view === "add") {
+        return (
+            <AddProduct
+                onSave={handleAddProduct}
+                onCancel={() => setView("list")}
+            />
+        );
+    }
+
+    if (view === "edit") {
+        return (
+            <EditProduct
+                product={selectedProduct}
+                onSave={handleUpdateProduct}
+                onCancel={() => setView("list")}
+            />
+        );
+    }
 
     return (
-        <div className="products-container">
+        <div className="card-wrapper">
+            <div className="products-card">
+                {/* Header Title */}
+                <h1 className="welcome-title">Welcome to ProductViews</h1>
+                <hr className="title-divider" />
 
-            <div className="product-header">
-
-                <div>
-                    <h1>
-                        Welcome to Product Lists
-                    </h1>
-
-                    <p>
-                        Manage your products
-                    </p>
+                {/* Top Action Buttons */}
+                <div className="action-bar">
+                    <button className="btn-purple" onClick={() => setView("add")}>
+                        + Add New Product
+                    </button>
+                    <button className="btn-logout-outline" onClick={onLogout}>
+                        Logout
+                    </button>
                 </div>
 
-                <button
-                    className="logout-button"
-                    onClick={handleLogout}
-                >
-                    Logout
-                </button>
-
-            </div>
-
-            <div className="crud-card">
-
-                <div className="product-list-header">
-
-                    <div>
-                        <h2>
-                            Product List
-                        </h2>
-
-                        <p>
-                            View and manage all products
-                        </p>
-                    </div>
-
-                    <Link
-                        to="/products/add"
-                        className="add-button"
-                    >
-                        + Add Product
-                    </Link>
-
-                </div>
-
-                {error && (
-                    <p className="error">
-                        {error}
-                    </p>
-                )}
-
-                {message && (
-                    <p className="success">
-                        {message}
-                    </p>
-                )}
-
-                {loading ? (
-
-                    <div className="empty-state">
-
-                        <p>
-                            Loading products...
-                        </p>
-
-                    </div>
-
-                ) : products.length === 0 ? (
-
-                    <div className="empty-state">
-
-                        <h3>
-                            No Products Yet
-                        </h3>
-
-                        <p>
-                            Add your first product
-                            to get started.
-                        </p>
-
-                    </div>
-
+                {/* Table View */}
+                {products.length === 0 ? (
+                    <p>No products available.</p>
                 ) : (
-
                     <div className="table-container">
-
-                        <table className="product-table">
-
+                        <table className="custom-table">
                             <thead>
-
                                 <tr>
-
-                                    <th>
-                                        ID
-                                    </th>
-
-                                    <th>
-                                        Product Name
-                                    </th>
-
-                                    <th>
-                                        Description
-                                    </th>
-
-                                    <th>
-                                        Price
-                                    </th>
-
-                                    <th>
-                                        Quantity
-                                    </th>
-
-                                    <th>
-                                        Created At
-                                    </th>
-
-                                    <th>
-                                        Actions
-                                    </th>
-
+                                    <th>ID</th>
+                                    <th>Product Name</th>
+                                    <th>Description</th>
+                                    <th>Price</th>
+                                    <th>Quantity</th>
+                                    <th>Action</th>
                                 </tr>
-
                             </thead>
-
                             <tbody>
-
-                                {products.map(
-                                    (product) => (
-
-                                        <tr
-                                            key={
-                                                product.id
-                                            }
-                                        >
-
-                                            <td>
-                                                {
-                                                    product.id
-                                                }
-                                            </td>
-
-                                            <td>
-                                                <strong>
-                                                    {
-                                                        product.product_name
-                                                    }
-                                                </strong>
-                                            </td>
-
-                                            <td>
-                                                {
-                                                    product.description ||
-                                                    "-"
-                                                }
-                                            </td>
-
-                                            <td>
-                                                ₱
-                                                {Number(
-                                                    product.price
-                                                ).toLocaleString(
-                                                    "en-PH",
-                                                    {
-                                                        minimumFractionDigits: 2,
-                                                        maximumFractionDigits: 2
-                                                    }
-                                                )}
-                                            </td>
-
-                                            <td>
-                                                {
-                                                    product.quantity
-                                                }
-                                            </td>
-
-                                            <td>
-                                                {
-                                                    product.created_at ||
-                                                    "-"
-                                                }
-                                            </td>
-
-                                            <td>
-
-                                                <div className="action-buttons">
-
-                                                    <Link
-                                                        to={`/products/edit/${product.id}`}
-                                                        className="edit-button"
-                                                    >
-                                                        Edit
-                                                    </Link>
-
-                                                    <button
-                                                        className="delete-button"
-                                                        onClick={() =>
-                                                            handleDelete(
-                                                                product
-                                                            )
-                                                        }
-                                                    >
-                                                        Delete
-                                                    </button>
-
-                                                </div>
-
-                                            </td>
-
-                                        </tr>
-
-                                    )
-                                )}
-
+                                {products.map((product) => (
+                                    <tr key={product.id}>
+                                        <td>{product.id}</td>
+                                        <td className="font-semibold">{product.product_name}</td>
+                                        <td>{product.description}</td>
+                                        <td>
+                                            ₱
+                                            {Number(product.price).toLocaleString("en-US", {
+                                                minimumFractionDigits: 2,
+                                                maximumFractionDigits: 2
+                                            })}
+                                        </td>
+                                        <td>{product.quantity}</td>
+                                        <td className="action-links">
+                                            <button
+                                                className="link-edit"
+                                                onClick={() => handleOpenEdit(product)}
+                                            >
+                                                Edit
+                                            </button>
+                                            <button
+                                                className="link-delete"
+                                                onClick={() => handleDelete(product.id)}
+                                            >
+                                                Delete
+                                            </button>
+                                        </td>
+                                    </tr>
+                                ))}
                             </tbody>
-
                         </table>
-
                     </div>
-
                 )}
-
             </div>
-
         </div>
     );
 }

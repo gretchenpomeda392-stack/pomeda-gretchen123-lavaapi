@@ -1,258 +1,96 @@
 import { useState } from "react";
-import {
-    Link,
-    useNavigate
-} from "react-router-dom";
 
-import { createProduct } from "../api";
+function AddProduct({ onSave, onCancel }) {
+    const [formData, setFormData] = useState({
+        product_name: "",
+        description: "",
+        price: "",
+        quantity: ""
+    });
 
-function AddProduct() {
-    const navigate = useNavigate();
+    const handleChange = (e) => {
+        const { name, value } = e.target;
+        setFormData((prev) => ({
+            ...prev,
+            [name]: value
+        }));
+    };
 
-    const [productName, setProductName] =
-        useState("");
-
-    const [description, setDescription] =
-        useState("");
-
-    const [price, setPrice] =
-        useState("");
-
-    const [quantity, setQuantity] =
-        useState("");
-
-    const [error, setError] =
-        useState("");
-
-    const [success, setSuccess] =
-        useState("");
-
-    const [loading, setLoading] =
-        useState(false);
-
-    const handleSubmit = async (e) => {
+    const handleSubmit = (e) => {
         e.preventDefault();
-
-        setError("");
-        setSuccess("");
-        setLoading(true);
-
-        try {
-
-            const response = await createProduct({
-                product_name: productName.trim(),
-                description: description.trim(),
-                price: Number(price),
-                quantity: Number(quantity)
-            });
-
-            console.log(
-                "CREATE PRODUCT RESPONSE:",
-                response
-            );
-
-            setSuccess(
-                response?.message ||
-                "Product created successfully."
-            );
-
-            /*
-             * Small delay so the success message
-             * can be seen before returning to list.
-             */
-
-            setTimeout(() => {
-                navigate("/products", {
-                    replace: true,
-                    state: {
-                        refresh: true,
-                        message:
-                            response?.message ||
-                            "Product created successfully."
-                    }
-                });
-            }, 500);
-
-        } catch (error) {
-
-            console.error(
-                "CREATE PRODUCT ERROR:",
-                error
-            );
-
-            setError(
-                error.message ||
-                "Unable to create product."
-            );
-
-        } finally {
-
-            setLoading(false);
-        }
+        onSave(formData);
     };
 
     return (
-        <div className="products-container">
+        <div className="card-wrapper">
+            <div className="products-card form-card">
+                <h1 className="welcome-title">Add New Product</h1>
+                <hr className="title-divider" />
 
-            <div className="product-header">
-
-                <div>
-                    <h1>
-                        Product Management
-                    </h1>
-
-                    <p>
-                        Add a new product
-                    </p>
-                </div>
-
-            </div>
-
-            <div className="crud-card">
-
-                <div className="form-header">
-
-                    <div>
-                        <h2>
-                            Add Product
-                        </h2>
-
-                        <p>
-                            Enter the product information below.
-                        </p>
-                    </div>
-
-                </div>
-
-                {error && (
-                    <p className="error">
-                        {error}
-                    </p>
-                )}
-
-                {success && (
-                    <p className="success">
-                        {success}
-                    </p>
-                )}
-
-                <form
-                    className="product-form"
-                    onSubmit={handleSubmit}
-                >
-
+                <form onSubmit={handleSubmit} className="product-form">
                     <div className="form-group">
-
-                        <label>
-                            Product Name
-                        </label>
-
+                        <label htmlFor="product_name">Product Name</label>
                         <input
                             type="text"
-                            placeholder="Enter product name"
-                            value={productName}
-                            onChange={(e) =>
-                                setProductName(
-                                    e.target.value
-                                )
-                            }
-                            maxLength={100}
+                            id="product_name"
+                            name="product_name"
+                            value={formData.product_name}
+                            onChange={handleChange}
                             required
+                            placeholder="Enter product name"
                         />
-
                     </div>
 
                     <div className="form-group">
-
-                        <label>
-                            Description
-                        </label>
-
+                        <label htmlFor="description">Description</label>
                         <textarea
-                            placeholder="Enter product description"
-                            value={description}
-                            onChange={(e) =>
-                                setDescription(
-                                    e.target.value
-                                )
-                            }
+                            id="description"
+                            name="description"
                             rows="4"
+                            value={formData.description}
+                            onChange={handleChange}
+                            required
+                            placeholder="Enter description"
                         />
-
                     </div>
 
-                    <div className="form-row">
+                    <div className="form-group">
+                        <label htmlFor="price">Price</label>
+                        <input
+                            type="number"
+                            step="0.01"
+                            id="price"
+                            name="price"
+                            value={formData.price}
+                            onChange={handleChange}
+                            required
+                            placeholder="0.00"
+                        />
+                    </div>
 
-                        <div className="form-group">
-
-                            <label>
-                                Price
-                            </label>
-
-                            <input
-                                type="number"
-                                step="0.01"
-                                min="0"
-                                placeholder="0.00"
-                                value={price}
-                                onChange={(e) =>
-                                    setPrice(
-                                        e.target.value
-                                    )
-                                }
-                                required
-                            />
-
-                        </div>
-
-                        <div className="form-group">
-
-                            <label>
-                                Quantity
-                            </label>
-
-                            <input
-                                type="number"
-                                min="0"
-                                placeholder="0"
-                                value={quantity}
-                                onChange={(e) =>
-                                    setQuantity(
-                                        e.target.value
-                                    )
-                                }
-                                required
-                            />
-
-                        </div>
-
+                    <div className="form-group">
+                        <label htmlFor="quantity">Quantity</label>
+                        <input
+                            type="number"
+                            id="quantity"
+                            name="quantity"
+                            value={formData.quantity}
+                            onChange={handleChange}
+                            required
+                            placeholder="0"
+                        />
                     </div>
 
                     <div className="form-actions">
-
-                        <Link
-                            to="/products"
-                            className="back-button"
-                        >
-                            Back
-                        </Link>
-
-                        <button
-                            type="submit"
-                            className="add-button"
-                            disabled={loading}
-                        >
-                            {loading
-                                ? "Saving..."
-                                : "Save Product"}
+                        <button type="button" className="btn-cancel" onClick={onCancel}>
+                            Cancel
                         </button>
-
+                        <button type="submit" className="btn-purple">
+                            Save Product
+                        </button>
                     </div>
-
                 </form>
-
             </div>
-
         </div>
     );
 }

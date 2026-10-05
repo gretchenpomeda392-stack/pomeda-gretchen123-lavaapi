@@ -1,153 +1,167 @@
-import axios from "axios";
+const API_URL = "api";
 
-const api = axios.create({
-    baseURL: import.meta.env.VITE_API_URL,
-    headers: {
+/**
+ * Core helper function for making API requests with optional Authorization headers.
+ */
+export async function apiRequest(endpoint, options = {}) {
+    const token = localStorage.getItem("access_token");
+
+    const headers = {
         "Content-Type": "application/json",
-        "Accept": "application/json"
+        ...options.headers,
+    };
+
+    if (token) {
+        headers.Authorization = `Bearer ${token}`;
     }
-});
 
-// REGISTER
-export async function register(
-    username,
-    email,
-    password,
-    role = "user"
-) {
     try {
-        const response = await api.post(
-            "/register",
-            {
-                username,
-                email,
-                password,
-                role
-            }
-        );
+        const response = await fetch(`${API_URL}/${endpoint}`, {
+            ...options,
+            headers,
+        });
 
-        console.log(
-            "REGISTER RESPONSE:",
-            response.data
-        );
+        const text = await response.text();
+        let data;
 
-        return response.data;
+        try {
+            data = JSON.parse(text);
+        } catch {
+            data = {
+                message: text || "Server returned an invalid response.",
+            };
+        }
 
-    } catch (error) {
-
-        console.error(
-            "REGISTER ERROR:",
-            error
-        );
-
-        if (error.response) {
+        if (!response.ok) {
             throw new Error(
-                error.response.data?.message ||
-                error.response.data?.error ||
-                `HTTP Error ${error.response.status}`
-            );
-        }
-
-        throw new Error(
-            "Unable to connect to the API server."
-        );
-    }
-}
-
-// LOGIN
-export async function login(
-    username,
-    password
-) {
-    try {
-        const response = await api.post(
-            "/login",
-            {
-                username,
-                password
-            }
-        );
-
-        console.log(
-            "LOGIN RESPONSE:",
-            response.data
-        );
-
-        const data = response.data;
-
-        const accessToken =
-            data?.access_token ||
-            data?.tokens?.access_token ||
-            data?.token ||
-            null;
-
-        const refreshToken =
-            data?.refresh_token ||
-            data?.tokens?.refresh_token ||
-            null;
-
-        if (accessToken) {
-            localStorage.setItem(
-                "access_token",
-                accessToken
-            );
-        }
-
-        if (refreshToken) {
-            localStorage.setItem(
-                "refresh_token",
-                refreshToken
-            );
-        }
-
-        if (data?.user) {
-            localStorage.setItem(
-                "user",
-                JSON.stringify(data.user)
+                data.message ||
+                data.error ||
+                `HTTP Error ${response.status}`
             );
         }
 
         return data;
-
     } catch (error) {
-
-        console.error(
-            "LOGIN ERROR:",
-            error
-        );
-
-        if (error.response) {
-            throw new Error(
-                error.response.data?.message ||
-                error.response.data?.error ||
-                `HTTP Error ${error.response.status}`
-            );
-        }
-
+        console.error("API ERROR:", error);
         throw new Error(
-            "Unable to connect to the API server."
+            error.message || "Unable to connect to server."
         );
     }
 }
 
-// LOGOUT
-export async function logout() {
 
+/*
+|--------------------------------------------------------------------------
+| REGISTER
+|--------------------------------------------------------------------------
+*/
+
+export async function register(
+    username,
+    email,
+    password,
+    role
+) {
+    return await apiRequest(
+        "register",
+        {
+            method: "POST",
+
+            body: JSON.stringify({
+                username,
+                email,
+                password,
+                role,
+            }),
+        }
+    );
+}
+
+
+/*
+|--------------------------------------------------------------------------
+| LOGIN
+|--------------------------------------------------------------------------
+*/
+
+export async function login(
+    username,
+    password
+) {
+    const data =
+        await apiRequest(
+            "login",
+            {
+                method: "POST",
+
+                body: JSON.stringify({
+                    username,
+                    password,
+                }),
+            }
+        );
+
+    if (data.tokens) {
+
+        if (
+            data.tokens.access_token
+        ) {
+            localStorage.setItem(
+                "access_token",
+                data.tokens.access_token
+            );
+        }
+
+        if (
+            data.tokens.refresh_token
+        ) {
+            localStorage.setItem(
+                "refresh_token",
+                data.tokens.refresh_token
+            );
+        }
+    }
+
+    if (data.user) {
+        localStorage.setItem(
+            "user",
+            JSON.stringify(data.user)
+        );
+    }
+
+    return data;
+}
+
+
+/*
+|--------------------------------------------------------------------------
+| LOGOUT
+|--------------------------------------------------------------------------
+*/
+
+export async function logout() {
     const refreshToken =
         localStorage.getItem(
             "refresh_token"
         );
 
     try {
-        await api.post(
-            "/logout",
+        await apiRequest(
+            "logout",
             {
-                refresh_token: refreshToken
+                method: "POST",
+
+                body: JSON.stringify({
+                    refresh_token:
+                        refreshToken,
+                }),
             }
         );
+
     } catch (error) {
+
         console.error(
-            "LOGOUT ERROR:",
+            "Logout error:",
             error
         );
     }
@@ -165,117 +179,138 @@ export async function logout() {
     );
 }
 
-// GET PRODUCTS
+
+/*
+|--------------------------------------------------------------------------
+| REFRESH TOKEN
+|--------------------------------------------------------------------------
+*/
+
+export async function refreshToken() {
+    const refresh_token =
+        localStorage.getItem(
+            "refresh_token"
+        );
+
+    return await apiRequest(
+        "refresh-token",
+        {
+            method: "POST",
+
+            body: JSON.stringify({
+                refresh_token,
+            }),
+        }
+    );
+}
+
+
+/*
+|--------------------------------------------------------------------------
+| PROFILE
+|--------------------------------------------------------------------------
+*/
+
+export async function getProfile() {
+    return await apiRequest(
+        "profile",
+        {
+            method: "GET",
+        }
+    );
+}
+
+
+/*
+|--------------------------------------------------------------------------
+| GET ALL PRODUCTS
+|--------------------------------------------------------------------------
+*/
+
 export async function getProducts() {
-
-    try {
-        const response =
-            await api.get("/products");
-
-        return response.data;
-
-    } catch (error) {
-
-        console.error(
-            "GET PRODUCTS ERROR:",
-            error
-        );
-
-        throw error;
-    }
+    return await apiRequest(
+        "products",
+        {
+            method: "GET",
+        }
+    );
 }
 
-// GET ONE PRODUCT
+
+/*
+|--------------------------------------------------------------------------
+| GET SINGLE PRODUCT
+|--------------------------------------------------------------------------
+*/
+
 export async function getProduct(id) {
-
-    try {
-        const response =
-            await api.get(
-                `/products/${id}`
-            );
-
-        return response.data;
-
-    } catch (error) {
-
-        console.error(
-            "GET PRODUCT ERROR:",
-            error
-        );
-
-        throw error;
-    }
+    return await apiRequest(
+        `products/${id}`,
+        {
+            method: "GET",
+        }
+    );
 }
 
-// CREATE PRODUCT
-export async function createProduct(product) {
 
-    try {
-        const response =
-            await api.post(
-                "/products",
+/*
+|--------------------------------------------------------------------------
+| CREATE PRODUCT
+|--------------------------------------------------------------------------
+*/
+
+export async function createProduct(
+    product
+) {
+    return await apiRequest(
+        "products",
+        {
+            method: "POST",
+
+            body: JSON.stringify(
                 product
-            );
-
-        return response.data;
-
-    } catch (error) {
-
-        console.error(
-            "CREATE PRODUCT ERROR:",
-            error
-        );
-
-        throw error;
-    }
+            ),
+        }
+    );
 }
 
-// UPDATE PRODUCT
+
+/*
+|--------------------------------------------------------------------------
+| UPDATE PRODUCT
+|--------------------------------------------------------------------------
+*/
+
 export async function updateProduct(
     id,
     product
 ) {
+    return await apiRequest(
+        `products/${id}`,
+        {
+            method: "PUT",
 
-    try {
-        const response =
-            await api.put(
-                `/products/${id}`,
+            body: JSON.stringify(
                 product
-            );
-
-        return response.data;
-
-    } catch (error) {
-
-        console.error(
-            "UPDATE PRODUCT ERROR:",
-            error
-        );
-
-        throw error;
-    }
+            ),
+        }
+    );
 }
 
-// DELETE PRODUCT
-export async function deleteProduct(id) {
 
-    try {
-        const response =
-            await api.delete(
-                `/products/${id}`
-            );
+/*
+|--------------------------------------------------------------------------
+| DELETE PRODUCT
+|--------------------------------------------------------------------------
+*/
 
-        return response.data;
-
-    } catch (error) {
-
-        console.error(
-            "DELETE PRODUCT ERROR:",
-            error
-        );
-
-        throw error;
-    }
+export async function deleteProduct(
+    id
+) {
+    return await apiRequest(
+        `products/${id}`,
+        {
+            method: "DELETE",
+        }
+    );
 }
-
-export default api;

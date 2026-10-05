@@ -326,31 +326,39 @@ if ( ! function_exists('autoload_config'))
 
 if ( ! function_exists('database_config'))
 {
-	/**
-	 * To access config from config config/database.php
-	 *
-	 * @return array<string,mixed>|null
-	 */
-	function database_config()
-	{
-		static $database;
+    /**
+     * To access config from config/database.php
+     *
+     * @return array<string,mixed>
+     */
+    function database_config()
+    {
+        static $database = null;
 
-		if ( file_exists(APP_DIR . 'config/database.php') )
-		{
-			require_once APP_DIR . 'config/database.php';
+        if ($database !== null) {
+            return $database;
+        }
 
-			if ( isset($database)  OR is_array($database) )
-			{
-				foreach( $database as $key => $val )
-				{
-					$database[$key] = $val;
-				}
+        $file = APP_DIR . 'config/database.php';
 
-				return $database;
-			}
-		} else
-			show_404('404 Not Found', 'The configuration file does not exist');
-	}
+        if (!file_exists($file)) {
+            show_404(
+                '404 Not Found',
+                'The database configuration file does not exist'
+            );
+            return [];
+        }
+
+        require $file;
+
+        if (!isset($database) || !is_array($database)) {
+            throw new RuntimeException(
+                'config/database.php must define $database as an array.'
+            );
+        }
+
+        return $database;
+    }
 }
 
 if ( ! function_exists('route_config'))

@@ -1,10 +1,7 @@
 import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
 import { register } from "../api";
 
-function Register() {
-    const navigate = useNavigate();
-
+function Register({ goLogin }) {
     const [username, setUsername] = useState("");
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
@@ -12,14 +9,12 @@ function Register() {
 
     const [message, setMessage] = useState("");
     const [error, setError] = useState("");
-    const [loading, setLoading] = useState(false);
 
     const handleSubmit = async (e) => {
         e.preventDefault();
 
         setMessage("");
         setError("");
-        setLoading(true);
 
         try {
             const data = await register(
@@ -29,43 +24,24 @@ function Register() {
                 role
             );
 
-            setMessage(
-                data.message ||
-                "Registration successful!"
-            );
+            setMessage(data.message);
 
             setUsername("");
             setEmail("");
             setPassword("");
             setRole("user");
-
-            setTimeout(() => {
-                navigate("/login");
-            }, 1000);
-
         } catch (error) {
-            setError(
-                error.message ||
-                "Registration failed."
-            );
-        } finally {
-            setLoading(false);
+            setError(error.message);
         }
     };
 
     return (
         <div className="auth-container">
-
             <form
                 className="auth-card"
                 onSubmit={handleSubmit}
             >
-
                 <h1>Create Account</h1>
-
-                <p className="auth-subtitle">
-                    Register a new account
-                </p>
 
                 <input
                     type="text"
@@ -125,28 +101,20 @@ function Register() {
                     </p>
                 )}
 
-                <button
-                    type="submit"
-                    disabled={loading}
-                >
-                    {loading
-                        ? "Registering..."
-                        : "Register"}
+                <button type="submit">
+                    Register
                 </button>
 
                 <p className="switch-text">
                     Already have an account?{" "}
-
-                    <Link
-                        to="/login"
+                    <span
                         className="link"
+                        onClick={goLogin}
                     >
                         Login
-                    </Link>
+                    </span>
                 </p>
-
             </form>
-
         </div>
     );
 }

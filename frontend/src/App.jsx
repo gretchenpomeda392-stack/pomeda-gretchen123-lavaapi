@@ -1,75 +1,51 @@
-import {
-    BrowserRouter,
-    Routes,
-    Route,
-    Navigate
-} from "react-router-dom";
-
-import Register from "./components/Register";
+import { useState } from "react";
 import Login from "./components/Login";
+import Register from "./components/Register";
 import Products from "./components/Products";
-import AddProduct from "./components/AddProduct";
-import EditProduct from "./components/EditProduct";
+
 
 function App() {
+    const [page, setPage] = useState("register");
+
+    const handleLogin = () => {
+        setPage("success");
+
+        setTimeout(() => {
+            setPage("products");
+        }, 1500);
+    };
+
+    // Logout function para bumalik sa login page
+    const handleLogout = () => {
+        setPage("login");
+    };
+
     return (
-        <BrowserRouter>
-            <Routes>
-
-                {/* Home → Register */}
-                <Route
-                    path="/"
-                    element={
-                        <Navigate
-                            to="/register"
-                            replace
-                        />
-                    }
+        <div>
+            {page === "register" && (
+                <Register
+                    goLogin={() => setPage("login")}
                 />
+            )}
 
-                {/* Register */}
-                <Route
-                    path="/register"
-                    element={<Register />}
+            {page === "login" && (
+                <Login
+                    onLogin={handleLogin}
+                    goRegister={() => setPage("register")}
                 />
+            )}
 
-                {/* Login */}
-                <Route
-                    path="/login"
-                    element={<Login />}
-                />
+            {page === "success" && (
+                <div className="success-container">
+                    <h1>Login successful!</h1>
+                    <p>Redirecting to products...</p>
+                </div>
+            )}
 
-                {/* Products */}
-                <Route
-                    path="/products"
-                    element={<Products />}
-                />
-
-                {/* Add Product */}
-                <Route
-                    path="/products/add"
-                    element={<AddProduct />}
-                />
-
-                {/* Edit Product */}
-                <Route
-                    path="/products/edit/:id"
-                    element={<EditProduct />}
-                />
-
-                {/* Invalid URL → Register */}
-                <Route
-                    path="*"
-                    element={
-                        <Navigate
-                            to="/register"
-                            replace
-                        />
-                    }
-                />
-
-            </Routes>
-        </BrowserRouter>
+            {page === "products" && (
+                <Products onLogout={handleLogout} />
+            )}
+        </div>
     );
 }
 

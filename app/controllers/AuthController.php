@@ -2,20 +2,25 @@
 
 defined('PREVENT_DIRECT_ACCESS') OR exit('No direct script access allowed');
 
-
 class AuthController extends Controller
 {
     public function __construct()
     {
+        // CORS Headers
+        header("Access-Control-Allow-Origin: http://localhost:5173");
+        header("Access-Control-Allow-Methods: GET, POST, OPTIONS, PUT, DELETE");
+        header("Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With");
+
+        if (isset($_SERVER['REQUEST_METHOD']) && $_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+            http_response_code(200);
+            exit();
+        }
+
         parent::__construct();
 
-        // Database
+        // Load Database Library para maging available ang $this->db
         $this->call->database();
-
-        // API library
         $this->call->library('api');
-
-        // Users model
         $this->call->model('UsersModel');
     }
 
@@ -32,29 +37,19 @@ class AuthController extends Controller
 
         $input = $this->api->body();
 
-        $username = trim(
-            $input['username'] ?? ''
-        );
-
-        $email = trim(
-            $input['email'] ?? ''
-        );
-
-        $password =
-            $input['password'] ?? '';
-
-        $role = trim(
-            $input['role'] ?? 'user'
-        );
+        $username = trim($input['username'] ?? '');
+        $email    = trim($input['email'] ?? '');
+        $password = $input['password'] ?? '';
+        $role     = trim($input['role'] ?? 'user');
 
 
-        // Required fields
+        /*
+        |--------------------------------------------------------------------------
+        | REQUIRED FIELDS
+        |--------------------------------------------------------------------------
+        */
 
-        if (
-            $username === '' ||
-            $email === '' ||
-            $password === ''
-        ) {
+        if ($username === '' || $email === '' || $password === '') {
             $this->api->respond_error(
                 'Username, email and password are required.',
                 400
@@ -62,14 +57,13 @@ class AuthController extends Controller
         }
 
 
-        // Validate email
+        /*
+        |--------------------------------------------------------------------------
+        | EMAIL
+        |--------------------------------------------------------------------------
+        */
 
-        if (
-            !filter_var(
-                $email,
-                FILTER_VALIDATE_EMAIL
-            )
-        ) {
+        if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
             $this->api->respond_error(
                 'Invalid email address.',
                 400
@@ -77,11 +71,13 @@ class AuthController extends Controller
         }
 
 
-        // Validate password
+        /*
+        |--------------------------------------------------------------------------
+        | PASSWORD
+        |--------------------------------------------------------------------------
+        */
 
-        if (
-            strlen($password) < 6
-        ) {
+        if (strlen($password) < 6) {
             $this->api->respond_error(
                 'Password must be at least 6 characters.',
                 400
@@ -89,15 +85,13 @@ class AuthController extends Controller
         }
 
 
-        // Validate role
+        /*
+        |--------------------------------------------------------------------------
+        | ROLE
+        |--------------------------------------------------------------------------
+        */
 
-        if (
-            !in_array(
-                $role,
-                ['user', 'admin'],
-                true
-            )
-        ) {
+        if (!in_array($role, ['user', 'admin'], true)) {
             $this->api->respond_error(
                 'Invalid role.',
                 400
@@ -105,24 +99,20 @@ class AuthController extends Controller
         }
 
 
-        // Check username
+        /*
+        |--------------------------------------------------------------------------
+        | CHECK USERNAME
+        |--------------------------------------------------------------------------
+        */
 
         $stmt = $this->db->raw(
-            'SELECT id
-             FROM users
-             WHERE username = ?
-             LIMIT 1',
+            'SELECT id FROM users WHERE username = ? LIMIT 1',
             [$username]
         );
 
-        $existingUsername =
-            $stmt->fetch(
-                PDO::FETCH_ASSOC
-            );
-
+        $existingUsername = $stmt->fetch(PDO::FETCH_ASSOC);
 
         if ($existingUsername) {
-
             $this->api->respond_error(
                 'Username already exists.',
                 409
@@ -130,24 +120,20 @@ class AuthController extends Controller
         }
 
 
-        // Check email
+        /*
+        |--------------------------------------------------------------------------
+        | CHECK EMAIL
+        |--------------------------------------------------------------------------
+        */
 
         $stmt = $this->db->raw(
-            'SELECT id
-             FROM users
-             WHERE email = ?
-             LIMIT 1',
+            'SELECT id FROM users WHERE email = ? LIMIT 1',
             [$email]
         );
 
-        $existingEmail =
-            $stmt->fetch(
-                PDO::FETCH_ASSOC
-            );
-
+        $existingEmail = $stmt->fetch(PDO::FETCH_ASSOC);
 
         if ($existingEmail) {
-
             $this->api->respond_error(
                 'Email already exists.',
                 409
@@ -155,27 +141,24 @@ class AuthController extends Controller
         }
 
 
-        // Hash password
+        /*
+        |--------------------------------------------------------------------------
+        | HASH PASSWORD
+        |--------------------------------------------------------------------------
+        */
 
-        $hashedPassword =
-            password_hash(
-                $password,
-                PASSWORD_BCRYPT
-            );
+        $hashedPassword = password_hash($password, PASSWORD_BCRYPT);
 
 
-        // Insert user
+        /*
+        |--------------------------------------------------------------------------
+        | INSERT USER
+        |--------------------------------------------------------------------------
+        */
 
         $this->db->raw(
-            'INSERT INTO users
-            (
-                username,
-                email,
-                password,
-                role,
-                created_at
-            )
-            VALUES (?, ?, ?, ?, NOW())',
+            'INSERT INTO users (username, email, password, role, created_at)
+             VALUES (?, ?, ?, ?, NOW())',
             [
                 $username,
                 $email,
@@ -185,12 +168,15 @@ class AuthController extends Controller
         );
 
 
-        // Response
+        /*
+        |--------------------------------------------------------------------------
+        | RESPONSE
+        |--------------------------------------------------------------------------
+        */
 
         $this->api->respond(
             [
-                'message' =>
-                    'Account created successfully.'
+                'message' => 'Account created successfully.'
             ],
             201
         );
@@ -203,77 +189,67 @@ class AuthController extends Controller
     |--------------------------------------------------------------------------
     */
 
-public function login()
-{
-    $this->api->require_method('POST');
+    public function login()
+    {
+        $this->api->require_method('POST');
 
-    $input = $this->api->body();
+        $input = $this->api->body();
 
-    $username = trim($input['username'] ?? '');
-    $password = $input['password'] ?? '';
+        $username = trim($input['username'] ?? '');
+        $password = $input['password'] ?? '';
 
-    if ($username === '' || $password === '') {
-        $this->api->respond_error(
-            'Username and password are required.',
-            400
+
+        if ($username === '' || $password === '') {
+            $this->api->respond_error(
+                'Username and password are required.',
+                400
+            );
+        }
+
+
+        $stmt = $this->db->raw(
+            'SELECT * FROM users WHERE username = ? LIMIT 1',
+            [$username]
         );
-    }
 
-    $stmt = $this->db->raw(
-        'SELECT id, username, email, password, role, created_at
-         FROM users
-         WHERE username = ?
-         LIMIT 1',
-        [$username]
-    );
+        $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
-    $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
-    if (!$user) {
-        $this->api->respond_error(
-            'Invalid username or password.',
-            401
-        );
-    }
+        if (!$user) {
+            $this->api->respond_error(
+                'Invalid username or password.',
+                401
+            );
+        }
 
-    if (!password_verify($password, $user['password'])) {
-        $this->api->respond_error(
-            'Invalid username or password.',
-            401
-        );
-    }
 
-    // CREATE ACCESS + REFRESH TOKEN
-    $tokens = $this->api->issue_tokens([
-        'id' => (int) $user['id'],
-        'role' => $user['role']
-    ]);
+        if (!password_verify($password, $user['password'])) {
+            $this->api->respond_error(
+                'Invalid username or password.',
+                401
+            );
+        }
 
-    if (
-        !is_array($tokens) ||
-        empty($tokens['access_token']) ||
-        empty($tokens['refresh_token'])
-    ) {
-        $this->api->respond_error(
-            'Token generation failed.',
-            500
-        );
-    }
 
-    $this->api->respond([
-        'message' => 'Login successful.',
-        'user' => [
-            'id' => $user['id'],
-            'username' => $user['username'],
-            'email' => $user['email'],
+        $tokens = $this->api->issue_tokens([
+            'id'   => $user['id'],
             'role' => $user['role']
-        ],
-        'access_token' => $tokens['access_token'],
-        'refresh_token' => $tokens['refresh_token'],
-        'expires_in' => $tokens['expires_in'] ?? 900,
-        'token_type' => $tokens['token_type'] ?? 'Bearer'
-    ]);
-}
+        ]);
+
+
+        $this->api->respond(
+            [
+                'message' => 'Login successful.',
+                'user'    => [
+                    'id'       => $user['id'],
+                    'username' => $user['username'],
+                    'email'    => $user['email'],
+                    'role'     => $user['role']
+                ],
+                'tokens'  => $tokens
+            ]
+        );
+    }
 
 
     /*
@@ -286,29 +262,19 @@ public function login()
     {
         $this->api->require_method('POST');
 
-        $input =
-            $this->api->body();
+        $input = $this->api->body();
+
+        $refreshToken = $input['refresh_token'] ?? '';
 
 
-        $refreshToken =
-            $input['refresh_token'] ?? '';
-
-
-        if (
-            $refreshToken !== ''
-        ) {
-
-            $this->api
-                ->revoke_refresh_token(
-                    $refreshToken
-                );
+        if ($refreshToken !== '') {
+            $this->api->revoke_refresh_token($refreshToken);
         }
 
 
         $this->api->respond(
             [
-                'message' =>
-                    'Logout successful.'
+                'message' => 'Logout successful.'
             ]
         );
     }
@@ -324,18 +290,12 @@ public function login()
     {
         $this->api->require_method('POST');
 
-        $input =
-            $this->api->body();
+        $input = $this->api->body();
+
+        $refreshToken = $input['refresh_token'] ?? '';
 
 
-        $refreshToken =
-            $input['refresh_token'] ?? '';
-
-
-        if (
-            $refreshToken === ''
-        ) {
-
+        if ($refreshToken === '') {
             $this->api->respond_error(
                 'Refresh token is required.',
                 400
@@ -343,10 +303,7 @@ public function login()
         }
 
 
-        $this->api
-            ->refresh_access_token(
-                $refreshToken
-            );
+        $this->api->refresh_access_token($refreshToken);
     }
 
 
@@ -358,31 +315,21 @@ public function login()
 
     public function profile()
     {
-        $auth =
-            $this->api->require_jwt();
+        $auth = $this->api->require_jwt();
 
 
         $stmt = $this->db->raw(
-            'SELECT
-                id,
-                username,
-                email,
-                role,
-                created_at
+            'SELECT id, username, email, role, created_at
              FROM users
              WHERE id = ?',
             [$auth['sub']]
         );
 
 
-        $user =
-            $stmt->fetch(
-                PDO::FETCH_ASSOC
-            );
+        $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
 
         if (!$user) {
-
             $this->api->respond_error(
                 'User not found.',
                 404
@@ -392,8 +339,7 @@ public function login()
 
         $this->api->respond(
             [
-                'user' =>
-                    $user
+                'user' => $user
             ]
         );
     }
